@@ -141,7 +141,7 @@ model_fit <- fit.model_spec(
 )
 model_fit
 
-# Make the predictions
+# Make the predictions (you could skip this step)
 wbcd_test_pred <- predict.model_fit(
     model_fit,
     new_data = wbcd_test,
@@ -150,8 +150,7 @@ wbcd_test_pred <- predict.model_fit(
 wbcd_test_pred
 
 # Add the predictions to the test tibble
-wbcd_test_with_pred_tbl <- wbcd_test %>% 
-    mutate(predicted = wbcd_test_pred %>% pull())
+wbcd_test_with_pred_tbl <- augment(model_fit, wbcd_test)
 wbcd_test_with_pred_tbl
 
 
@@ -161,7 +160,7 @@ wbcd_test_with_pred_tbl
 conf_mat <- conf_mat(
     data     = wbcd_test_with_pred_tbl,
     truth    = diagnosis,
-    estimate = predicted
+    estimate = .pred_class
 )
 conf_mat
 
@@ -172,7 +171,7 @@ classification_metrics <- metric_set(accuracy, mcc, f_meas)
 classification_metrics(
     wbcd_test_with_pred_tbl,
     truth    = diagnosis,
-    estimate = predicted
+    estimate = .pred_class
 )
 
 
@@ -239,22 +238,14 @@ classify_with_knn <- function(
         wbcd_train
     )
     
-    # Make the predictions
-    wbcd_test_pred <- predict.model_fit(
-        model_fit,
-        new_data = wbcd_test,
-        type     = "class"
-    )
-    
     # Add the predictions to the test tibble
-    wbcd_test_with_pred_tbl <- wbcd_test %>% 
-        mutate(predicted = wbcd_test_pred %>% pull())
+    wbcd_test_with_pred_tbl <- augment(model_fit, wbcd_test)
     
     # Create a confusion matrix
     conf_mat <- conf_mat(
         data     = wbcd_test_with_pred_tbl,
         truth    = diagnosis,
-        estimate = predicted
+        estimate = .pred_class
     )
     
     # Print the confusion matrix
@@ -264,5 +255,5 @@ classify_with_knn <- function(
 # Test the function:
 classify_with_knn(
     standardization_method = "range",
-    k = 1
+    k = 5
 )

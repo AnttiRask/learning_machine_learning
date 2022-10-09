@@ -162,7 +162,25 @@ conf_mat <- conf_mat(
     truth    = diagnosis,
     estimate = .pred_class
 )
-conf_mat
+
+# Visualize the confusion matrix
+conf_mat %>% autoplot(type = "heatmap")
+conf_mat %>% autoplot(type = "mosaic")
+
+# Visualize the ROC curve
+wbcd_test_with_pred_tbl %>% 
+    roc_curve(
+        truth    = diagnosis,
+        estimate = .pred_Benign
+    ) %>% autoplot()
+
+# Calculate the ROC AUC (area under the curve)
+wbcd_roc_auc <- wbcd_test_with_pred_tbl %>% 
+    roc_auc(
+        truth    = diagnosis,
+        estimate = .pred_Benign
+    )
+wbcd_roc_auc
 
 
 # Put together other model metrics, such as accuracy, Matthews correlation 

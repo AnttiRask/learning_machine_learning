@@ -166,13 +166,13 @@ conf_mat
 
 
 # Put together other model metrics, such as accuracy, Matthews correlation 
-# coefficient (mcc) and F1 (f_meas)
-classification_metrics <- metric_set(accuracy, mcc, f_meas)
-classification_metrics(
+# coefficient (mcc), F1 (f_meas) and others...
+classification_metrics <- conf_mat(
     wbcd_test_with_pred_tbl,
     truth    = diagnosis,
     estimate = .pred_class
-)
+) %>% 
+    summary()
 
 
 ## 6. Creating a function to help evaluate the model further ----

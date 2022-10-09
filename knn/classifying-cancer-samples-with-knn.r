@@ -134,7 +134,7 @@ model_spec <- nearest_neighbor(
 model_spec
 
 # Fit the model
-model_fit <- fit.model_spec(
+model_fit <- fit(
     model_spec,
     diagnosis ~ .,
     wbcd_train
@@ -142,7 +142,7 @@ model_fit <- fit.model_spec(
 model_fit
 
 # Make the predictions (you could skip this step)
-wbcd_test_pred <- predict.model_fit(
+wbcd_test_pred <- predict(
     model_fit,
     new_data = wbcd_test,
     type = "class"
@@ -232,7 +232,7 @@ classify_with_knn <- function(
         translate()
     
     # Fit the model
-    model_fit <- fit.model_spec(
+    model_fit <- fit(
         model_spec,
         diagnosis ~ .,
         wbcd_train

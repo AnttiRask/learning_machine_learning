@@ -196,6 +196,7 @@ classification_metrics <- conf_mat(
 
 ## 6. Creating a function to help evaluate the model further ----
 
+# The assumption here is that you have already gone through steps 1. to 2.
 # The idea is to be able to choose different values for k and different
 # methods for standardization (range (0 to 1) and normalization)
 

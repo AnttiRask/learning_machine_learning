@@ -6,7 +6,7 @@ The original code is made with a lot of base R, {e1071} and {gmodels}. I wanted 
 
 If you haven't already, buy the book: https://www.packtpub.com/product/machine-learning-with-r-third-edition/9781788295864
 
-# You can find the original code here:
+You can find the original code and the slightly modified dataset here:
 https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter04
 
 Dataset Citation:

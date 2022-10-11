@@ -4,8 +4,8 @@
 # Probabilistic Learning - Classification Using Naive Bayes.
 #
 # The original code is made with a lot of base R, {e1071} and {gmodels}. I 
-# wanted to see how one could recreate it using mainly {tidymodels},
-# {tidyverse}, {tidytext} and some other packages, including a bit of base R.
+# wanted to see how one could recreate it using mainly {textrecipes},
+# {tidymodels}, {tidytext} and {tidyverse}.
 #
 # You can find the original code and the slightly modified dataset here:
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter04
@@ -253,7 +253,6 @@ sms_roc_auc <- sms_test_with_pred_tbl %>%
     estimate = .pred_ham
   )
 sms_roc_auc
-
 
 ### Put together other model metrics ----
 # Such as accuracy, Matthews correlation coefficient (mcc) and others...

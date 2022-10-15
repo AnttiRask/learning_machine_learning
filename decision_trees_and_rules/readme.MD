@@ -1,4 +1,4 @@
-# Identifying Risky Bank Loans Using C5.0 Decision Trees /<br>
+# Identifying Risky Bank Loans Using C5.0 Decision Trees /
 Identifying Poisonous Mushrooms with Rule Learners
 
 Inspired by Brett Lantz's Machine Learning with R, Chapter 5:

@@ -231,5 +231,99 @@ classification_metrics_boost_tree <- conf_mat(
 classification_metrics_boost_tree
 
 
+### 6. Creating a function to help evaluate the model further ----
 
+# The assumption here is that you have already gone through steps 1. to 2.
+# What we're potentially tuning here are the arguments .tree_depth and .min_n
+# for decision_tree, and .trees and .min_n for boost_tree.
 
+classify_with_C5_trees <- function(
+    .model           = c("decision_tree", "boost_tree"),
+    .mode            = "classification",
+    .engine          = "C5.0",
+    .tree_depth      = NULL, # for decision_tree
+    .trees           = NULL, # for boost_tree
+    .min_n           = 1     # for both
+){
+    
+    # Creating the recipe
+    recipe_obj <- recipe(
+        default ~ .,
+        data = credit_tbl
+    ) %>%
+        step_string2factor(all_nominal())
+
+    credit_factorized_tbl <- recipe_obj %>%
+        prep() %>%
+        bake(new_data = NULL)
+    
+    # Create training and test data (randomly)
+    RNGversion("3.5.2"); set.seed(123)
+    credit_split <- initial_split(
+        credit_factorized_tbl,
+        prop = 0.9
+    )
+    credit_train <- training(credit_split)
+    credit_test  <- testing(credit_split)
+    
+    # Model specification
+    
+    model <- .model
+    
+    if (model == "decision_tree") {
+        
+        model_spec <- decision_tree(
+            mode            = .mode,
+            engine          = .engine,
+            tree_depth      = .tree_depth,
+            min_n           = .min_n
+        ) %>%
+            translate()
+        
+    } else if (model == "boost_tree") {
+        
+        model_spec <- boost_tree(
+            mode            = .mode,
+            engine          = .engine,
+            trees           = .trees,
+            min_n           = .min_n
+        ) %>%
+            translate()
+        
+    } else {
+        
+        stop("The model needs to be either decision_tree or boost_tree!")
+        
+    }
+    
+    # Fit the model
+    model_fit <- fit(
+        model_spec,
+        default ~ .,
+        credit_train
+    )
+
+    # Add the predictions to the test tibble
+    credit_test_with_pred_tbl <- augment(model_fit, credit_test)
+    credit_test_with_pred_tbl
+    
+    # Create a confusion matrix
+    conf_mat <- conf_mat(
+        data     = credit_test_with_pred_tbl,
+        truth    = default,
+        estimate = .pred_class
+    )
+    
+    conf_mat %>% autoplot(type = "heatmap")
+    
+}
+
+#### Test the function ----
+classify_with_C5_trees(
+    .model           = "decision_tree",
+    .mode            = "classification",
+    .engine          = "C5.0",
+    .tree_depth      = NULL, # for decision_tree
+    .trees           = NULL, # for boost_tree
+    .min_n           = 1  # for both, NULL produces error, so > 1 is adviced
+)

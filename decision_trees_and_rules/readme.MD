@@ -10,7 +10,7 @@ wanted to see how one could recreate it using mainly {tidymodels} and
 
 If you haven't already, buy the book:<br> https://www.packtpub.com/product/machine-learning-with-r-third-edition/9781788295864
 
-You can find the original code and the slightly modified dataset here:<br>
+You can find the original code and the slightly modified datasets here:<br>
 https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter05
 
 Dataset Citation(s):

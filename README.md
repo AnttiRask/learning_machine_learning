@@ -5,7 +5,8 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 ## Algorithms tackled (see the named folder(s) for examples):
 * K-nearest neighbors (k-NN)
 * Naive Bayes
-* Decision Trees and Rules __NEW__
+* Decision Trees and Rules
+* Regression Methods (part 1) __NEW__
 
 ## Coming up next:
 * Regression Methods

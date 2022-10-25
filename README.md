@@ -6,10 +6,9 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 * K-nearest neighbors (k-NN)
 * Naive Bayes
 * Decision Trees and Rules
-* Regression Methods (part 1) __NEW__
+* Regression Methods __NEW__
 
 ## Coming up next:
-* Regression Methods
 * Neural Networks and Support Vector Machines
 * Association Rules
 * Clustering

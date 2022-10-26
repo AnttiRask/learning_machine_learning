@@ -1,5 +1,5 @@
 # Predicting Medical Expenses with Linear Regression /
-# Estimating Wine Quality with Linear Regression
+# Estimating Wine Quality with Regression Trees and Model Trees
 
 Inspired by Brett Lantz's Machine Learning with R, Chapter 6:
 Forecasting Numeric Data - Regression Methods.
@@ -16,6 +16,6 @@ Dataset Citation(s):<br>
 __Predicting Medical Expenses with Linear Regression__<br>
 Brett Lantz: "These data were created for this book using demographic statistics from the U.S. Census Bureau"
 
-__Estimating Wine Quality with Linear Regression__<br>
+__Estimating Wine Quality with Regression Trees and Model Trees__<br>
 P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis.<br>
 Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.

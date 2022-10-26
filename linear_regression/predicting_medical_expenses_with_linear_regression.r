@@ -281,7 +281,7 @@ predict_medical_expenses <- function(
   )
   
   str_glue("The predicted medical expenses according to the given parameters are: ${prediction %>% round(0)}")
-
+  
 }
 
 ### Test the function ----

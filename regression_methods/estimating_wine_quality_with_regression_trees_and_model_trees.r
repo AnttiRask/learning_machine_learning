@@ -1,4 +1,4 @@
-# Estimating Wine Quality with Linear Regression ----
+# Estimating Wine Quality with Regression Trees and Model Trees ----
 
 # Inspired by Brett Lantz's Machine Learning with R, Chapter 6:
 # Forecasting Numeric Data - Regression Methods.
@@ -18,7 +18,7 @@ library(rules)
 
 
 ## 2. Preparing and exploring the data ----
-wine_tbl <- read_csv("linear_regression/data/whitewines.csv") %>% 
+wine_tbl <- read_csv("regression_methods/data/whitewines.csv") %>% 
   rename_all(
     ~str_replace_all(., "\\s+", "_") %>%
       tolower()
@@ -179,7 +179,7 @@ wine_test_with_pred_cubist %>%
 # The assumption here is that you have already taken step 1.
 
 # Preparing and exploring the other wine dataset
-red_wine_tbl <- read_csv("linear_regression/data/redwines.csv") %>% 
+red_wine_tbl <- read_csv("regression_methods/data/redwines.csv") %>% 
   rename_all(
     ~str_replace_all(., "\\s+", "_") %>%
       tolower()
@@ -205,7 +205,7 @@ predict_wine_quality <- function(
   if (!.winecolor %in% c("red", "white")) stop("Choose a wine color: red or white")
   
   # Write out the path so that you can insert the wine color in there
-  path = str_glue("linear_regression/data/{.winecolor}wines.csv")
+  path = str_glue("regression_methods/data/{.winecolor}wines.csv")
   
   # Read in the data
   wine_tbl <- read_csv(path) %>% 

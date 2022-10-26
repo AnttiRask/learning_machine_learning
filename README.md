@@ -9,7 +9,8 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 * Regression Methods __NEW__
 
 ## Coming up next:
-* Neural Networks and Support Vector Machines
+* Neural Networks
+* Support Vector Machines
 * Association Rules
 * Clustering
 * Bagging

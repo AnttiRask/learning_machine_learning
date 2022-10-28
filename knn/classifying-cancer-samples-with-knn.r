@@ -95,12 +95,13 @@ recipe_obj <- recipe(
     step_range(
         all_numeric_predictors(),
         min = 0,
-        max = 1)
+        max = 1
+    )
 recipe_obj
 
 wbcd_normalized_tbl <- recipe_obj %>%
     prep() %>%
-    bake(new_data = wbcd_factored_tbl)
+    bake(new_data = NULL)
 
 ### Confirm that normalization worked ----
 wbcd_normalized_tbl %>% 

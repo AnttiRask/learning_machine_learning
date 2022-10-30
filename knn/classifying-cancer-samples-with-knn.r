@@ -3,7 +3,7 @@
 # Inspired by Brett Lantz's Machine Learning with R, Chapter 3:
 # Lazy Learning - Classification Using Nearest Neighbors.
 #
-# The original code is made with a lot of base R, {class} and {gmodels}. I 
+# The original code is made with a lot of base R, {class} and {gmodels}. I
 # wanted to see how one could recreate it using mainly {tidymodels}
 # and {tidyverse}.
 #
@@ -75,13 +75,13 @@ wbcd_factored_tbl <- wbcd_selected_tbl %>%
 wbcd_factored_tbl
 
 ### Count the number of the two diagnosis (incl. percentage) ----
-wbcd_factored_tbl %>% 
-    count(diagnosis) %>% 
+wbcd_factored_tbl %>%
+    count(diagnosis) %>%
     mutate(pct = (n / sum(n) * 100))
 
 ### Summarize three numeric features ----
-wbcd_factored_tbl %>% 
-    select(radius_mean, area_mean, smoothness_mean) %>% 
+wbcd_factored_tbl %>%
+    select(radius_mean, area_mean, smoothness_mean) %>%
     summary()
 
 
@@ -104,14 +104,14 @@ wbcd_normalized_tbl <- recipe_obj %>%
     bake(new_data = NULL)
 
 ### Confirm that normalization worked ----
-wbcd_normalized_tbl %>% 
-    select(area_mean) %>% 
+wbcd_normalized_tbl %>%
+    select(area_mean) %>%
     summary()
 
 ### Create training and test data (randomly) ----
 wbcd_split <- initial_split(
     wbcd_normalized_tbl,
-    prop = 469/569
+    prop = 469 / 569
 )
 wbcd_train <- training(wbcd_split)
 wbcd_test  <- testing(wbcd_split)
@@ -130,7 +130,7 @@ model_spec <- nearest_neighbor(
     engine      = "kknn",
     mode        = "classification",
     neighbors   = 21
-) %>% 
+) %>%
     translate()
 model_spec
 
@@ -170,14 +170,15 @@ conf_mat %>% autoplot(type = "heatmap")
 conf_mat %>% autoplot(type = "mosaic")
 
 ### Visualize the ROC curve ----
-wbcd_test_with_pred_tbl %>% 
+wbcd_test_with_pred_tbl %>%
     roc_curve(
         truth    = diagnosis,
         estimate = .pred_Benign
-    ) %>% autoplot()
+    ) %>%
+    autoplot()
 
 ### Calculate the ROC AUC (area under the curve) ----
-wbcd_roc_auc <- wbcd_test_with_pred_tbl %>% 
+wbcd_roc_auc <- wbcd_test_with_pred_tbl %>%
     roc_auc(
         truth    = diagnosis,
         estimate = .pred_Benign
@@ -191,7 +192,7 @@ classification_metrics <- conf_mat(
     wbcd_test_with_pred_tbl,
     truth    = diagnosis,
     estimate = .pred_class
-) %>% 
+) %>%
     summary()
 
 
@@ -205,10 +206,10 @@ classify_with_knn <- function(
     k = 21,
     standardization_method = c("range", "normalization")
 ) {
-    
+
     # Create a recipe according to the chosen standardization method
     if (standardization_method == "range") {
-        
+
         recipe_obj <- recipe(
             formula = diagnosis ~ .,
             data    = wbcd_factored_tbl
@@ -217,58 +218,58 @@ classify_with_knn <- function(
                 all_numeric_predictors(),
                 min = 0,
                 max = 1)
-        
+
     } else if (standardization_method == "normalization") {
-        
+
         recipe_obj <- recipe(
             formula = diagnosis ~ .,
             data    = wbcd_factored_tbl
         ) %>%
             step_normalize(all_numeric_predictors())
-        
+
     } else {
-        
+
         stop('Choose a starndardization method that is either "range" or "normalization"!')
-        
+
     }
-    
+
     wbcd_normalized_tbl <- recipe_obj %>%
         prep() %>%
         bake(new_data = wbcd_factored_tbl)
-    
+
     # Create training and test data
     wbcd_split <- initial_split(
         wbcd_normalized_tbl,
-        prop = 469/569
+        prop = 469 / 569
     )
     wbcd_train <- training(wbcd_split)
     wbcd_test  <- testing(wbcd_split)
-    
+
     # Create model specification
     model_spec <- nearest_neighbor(
         engine      = "kknn",
         mode        = "classification",
         neighbors   = k
-    ) %>% 
+    ) %>%
         translate()
-    
+
     # Fit the model
     model_fit <- fit(
         model_spec,
         diagnosis ~ .,
         wbcd_train
     )
-    
+
     # Add the predictions to the test tibble
     wbcd_test_with_pred_tbl <- augment(model_fit, wbcd_test)
-    
+
     # Create a confusion matrix
     conf_mat <- conf_mat(
         data     = wbcd_test_with_pred_tbl,
         truth    = diagnosis,
         estimate = .pred_class
     )
-    
+
     # Print the confusion matrix
     conf_mat %>% autoplot(type = "heatmap")
 }

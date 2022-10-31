@@ -6,11 +6,11 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 * K-nearest neighbors (k-NN)
 * Naive Bayes
 * Decision Trees and Rules
-* Regression Methods __NEW__
+* Regression Methods 
+* Neural Networks __NEW__
+* Support Vector Machines __NEW__
 
 ## Coming up next:
-* Neural Networks
-* Support Vector Machines
 * Association Rules
 * Clustering
 * Bagging

@@ -23,7 +23,7 @@ glimpse(concrete_tbl)
 
 ### Check the minimum and maximum strength ----
 concrete_tbl %>%
-  select(strength) %>% 
+  select(strength) %>%
   summary()
 
 
@@ -33,7 +33,7 @@ concrete_tbl %>%
 recipe_obj <- recipe(
   strength ~ .,
   data = concrete_tbl
-) %>% 
+) %>%
   step_range(
     all_numeric_predictors(),
     min = 0,
@@ -49,7 +49,7 @@ concrete_normalized_tbl
 ### Create training and test data ----
 concrete_split <- initial_time_split(
   concrete_normalized_tbl,
-  prop = 773/1030
+  prop = 773 / 1030
 )
 concrete_train <- training(concrete_split)
 concrete_test  <- testing(concrete_split)
@@ -70,7 +70,7 @@ model_spec <- mlp(
   hidden_units = 5,
   penalty      = 0,
   epochs       = 100
-) %>% 
+) %>%
   translate()
 model_spec
 
@@ -109,7 +109,7 @@ concrete_test_with_pred %>% metrics(strength, .pred)
 
 ### Examine the correlation between predicted and actual values ----
 concrete_test_with_pred %>%
-  select(.pred, strength) %>% 
+  select(.pred, strength) %>%
   correlate()
 
 
@@ -122,7 +122,7 @@ model_spec_2 <- mlp(
   hidden_units = 5,
   penalty      = 0.1,
   epochs       = 100,
-) %>% 
+) %>%
   translate()
 model_spec_2
 
@@ -154,5 +154,5 @@ concrete_test_with_pred_2 %>% metrics(strength, .pred)
 
 ### Examine the correlation between predicted and actual values ----
 concrete_test_with_pred_2 %>%
-  select(.pred, strength) %>% 
+  select(.pred, strength) %>%
   correlate()

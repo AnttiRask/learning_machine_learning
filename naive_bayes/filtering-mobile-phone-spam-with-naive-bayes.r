@@ -3,7 +3,7 @@
 # Inspired by Brett Lantz's Machine Learning with R, Chapter 4:
 # Probabilistic Learning - Classification Using Naive Bayes.
 #
-# The original code is made with a lot of base R, {e1071} and {gmodels}. I 
+# The original code is made with a lot of base R, {e1071} and {gmodels}. I
 # wanted to see how one could recreate it using mainly {textrecipes},
 # {tidymodels}, {tidytext} and {tidyverse}.
 #
@@ -26,17 +26,16 @@ library(discrim)     # for naive_Bayes()
 sms_tbl <- read_csv(
   "naive_bayes/data/sms_spam.csv",
   col_types = "fc"
-) %>% 
+) %>%
   select(.type = type, everything())
 
 ### Examine the structure of the sms data ----
 glimpse(sms_tbl)
 
 ### Examine the distribution of spam/ham ----
-sms_tbl %>% 
-  count(.type) %>% 
+sms_tbl %>%
+  count(.type) %>%
   mutate(pct = (n / sum(n) * 100))
-
 
 ### Build a corpus using the {tidytext} package instead of {tm} ----
 
@@ -81,23 +80,23 @@ lobstr::obj_sizes(wide_sms_tbl, sparse_sms)
 
 ### Count word frequencies ----
 frequency_tbl <- sms_row_numbers_tbl %>%
-  
+
   # One word per one row
   unnest_tokens(word, text) %>%
-  
+
   # Stemming
-  mutate(word = wordStem(word)) %>% 
-  
+  mutate(word = wordStem(word)) %>%
+
   # Count the words
   count(.type, word) %>%
-  
+
   # Count the proportion of words
   with_groups(
     .type,
     mutate,
     proportion = n / sum(n)
   ) %>%
-  
+
   # Reorder the columns
   dplyr::select(-n) %>%
   pivot_wider(names_from = .type, values_from = proportion) %>%
@@ -108,7 +107,7 @@ frequency_tbl <- sms_row_numbers_tbl %>%
   )
 
 ### Subset the frequency data into two groups, spam and ham ----
-spam_tbl <- frequency_tbl %>% 
+spam_tbl <- frequency_tbl %>%
   filter(.type == "spam") %>%
   dplyr::select(-.type) %>%
   drop_na()
@@ -117,7 +116,6 @@ ham_tbl <- frequency_tbl %>%
   filter(.type == "ham") %>%
   dplyr::select(-.type) %>%
   drop_na()
-
 
 ### Word cloud ----
 
@@ -128,14 +126,14 @@ ham_tbl <- frequency_tbl %>%
 wordcloud2(
   data  = ham_tbl,
   size  = 2,
-  color = 'random-dark'
+  color = "random-dark"
 )
 
 # ...and another for spam
 wordcloud2(
   data  = spam_tbl,
   size  = 2,
-  color = 'random-dark'
+  color = "random-dark"
 )
 
 
@@ -159,12 +157,12 @@ sms_baked_tbl <- text_recipe_obj %>%
 
 # Simplify the tf-idf to yes/no
 sms_baked_longer_tbl <- sms_baked_tbl %>%
-  mutate(across(where(is.numeric), 
+  mutate(across(where(is.numeric),
                 ~ case_when(
                   . > 0 ~ "Yes",
                   TRUE   ~ "No"
-                ))) %>% 
-  # Rename the columns back to words 
+                ))) %>%
+  # Rename the columns back to words
   rename_with(
     ~ tolower(gsub("tfidf_text_", "", .x)),
     .cols = starts_with("tfidf_text_")
@@ -172,7 +170,7 @@ sms_baked_longer_tbl <- sms_baked_tbl %>%
 sms_baked_longer_tbl
 
 ### Create training and test data ----
-# Not randomly, because the messages weren't in any particular order 
+# Not randomly, because the messages weren't in any particular order
 sms_split <- initial_time_split(
   sms_baked_longer_tbl,
   prop = 0.75
@@ -196,7 +194,7 @@ sms_test  <- testing(sms_split)
 
 ### Model specification ----
 model_spec <- naive_Bayes(
-  engine     = "naivebayes",  
+  engine     = "naivebayes",
   mode       = "classification",
   smoothness = NULL,
   Laplace    = NULL
@@ -240,14 +238,15 @@ conf_mat %>% autoplot(type = "heatmap")
 conf_mat %>% autoplot(type = "mosaic")
 
 ### Visualize the ROC curve ----
-sms_test_with_pred_tbl %>% 
+sms_test_with_pred_tbl %>%
   roc_curve(
     truth    = .type,
     estimate = .pred_ham
-  ) %>% autoplot()
+  ) %>%
+  autoplot()
 
 ### Calculate the ROC AUC (area under the curve) ----
-sms_roc_auc <- sms_test_with_pred_tbl %>% 
+sms_roc_auc <- sms_test_with_pred_tbl %>%
   roc_auc(
     truth    = .type,
     estimate = .pred_ham
@@ -260,7 +259,7 @@ classification_metrics <- conf_mat(
   sms_test_with_pred_tbl,
   truth    = .type,
   estimate = .pred_class
-) %>% 
+) %>%
   summary()
 classification_metrics
 
@@ -271,7 +270,7 @@ classification_metrics
 
 ### Model specification ----
 model_spec <- naive_Bayes(
-  engine     = "naivebayes",  
+  engine     = "naivebayes",
   mode       = "classification",
   smoothness = NULL,
   Laplace    = 1
@@ -315,14 +314,15 @@ conf_mat %>% autoplot(type = "heatmap")
 conf_mat %>% autoplot(type = "mosaic")
 
 ### Visualize the ROC curve ----
-sms_test_with_pred_tbl %>% 
+sms_test_with_pred_tbl %>%
   roc_curve(
     truth    = .type,
     estimate = .pred_ham
-  ) %>% autoplot()
+  ) %>%
+  autoplot()
 
 ### Calculate the ROC AUC (area under the curve) ----
-sms_roc_auc <- sms_test_with_pred_tbl %>% 
+sms_roc_auc <- sms_test_with_pred_tbl %>%
   roc_auc(
     truth    = .type,
     estimate = .pred_ham
@@ -335,7 +335,7 @@ classification_metrics <- conf_mat(
   sms_test_with_pred_tbl,
   truth    = .type,
   estimate = .pred_class
-) %>% 
+) %>%
   summary()
 classification_metrics
 
@@ -348,19 +348,19 @@ classification_metrics
 
 classify_with_naive_bayes <- function(
   .smoothness  = NULL,
-  .Laplace     = NULL
+  .laplace     = NULL
 ) {
 
   # Model specification
   model_spec <- naive_Bayes(
-    engine     = "naivebayes",  
+    engine     = "naivebayes",
     mode       = "classification",
     smoothness = .smoothness,
-    Laplace    = .Laplace
+    Laplace    = .laplace
   ) %>%
     translate()
   model_spec
-  
+
   # Fit the model
   model_fit <- fit(
     model_spec,
@@ -368,7 +368,7 @@ classify_with_naive_bayes <- function(
     sms_train
   )
   model_fit
-  
+
   # Add the predictions to the test tibble
   sms_test_with_pred_tbl <- augment(model_fit, sms_test)
   sms_test_with_pred_tbl
@@ -379,14 +379,14 @@ classify_with_naive_bayes <- function(
     truth    = .type,
     estimate = .pred_class
   )
-  
+
   # Print the confusion matrix
   conf_mat %>% autoplot(type = "heatmap")
-  
+
 }
 
 ### Test the function ----
 classify_with_naive_bayes(
   .smoothness  = 1,
-  .Laplace     = 1
+  .laplace     = 1
 )

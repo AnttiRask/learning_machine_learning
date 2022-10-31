@@ -18,7 +18,7 @@ library(rules)
 
 
 ## 2. Preparing and exploring the data ----
-wine_tbl <- read_csv("regression_methods/data/whitewines.csv") %>% 
+wine_tbl <- read_csv("regression_methods/data/whitewines.csv") %>%
   rename_all(
     ~str_replace_all(., "\\s+", "_") %>%
       tolower()
@@ -28,7 +28,7 @@ wine_tbl
 glimpse(wine_tbl)
 
 ### The distribution of quality ratings ----
-wine_tbl %>% 
+wine_tbl %>%
   ggplot(aes(quality)) +
   geom_histogram()
 
@@ -37,7 +37,7 @@ summary(wine_tbl)
 
 wine_split <- initial_time_split(
   wine_tbl,
-  prop = 3750/4898
+  prop = 3750 / 4898
 )
 wine_train <- training(wine_split)
 wine_test  <- testing(wine_split)
@@ -92,7 +92,7 @@ wine_test_with_pred_tbl
 
 ### Compare the distribution of actual values vs. predicted values ----
 wine_test_with_pred_tbl %>%
-  select(quality, .pred) %>% 
+  select(quality, .pred) %>%
   summary()
 
 ### Compare the correlation ----
@@ -101,20 +101,20 @@ wine_test_with_pred_tbl %>%
   correlate()
 
 ### Mean absolute error between actual and predicted values ----
-wine_test_with_pred_tbl %>% 
-  metrics(quality, .pred) %>% 
+wine_test_with_pred_tbl %>%
+  metrics(quality, .pred) %>%
   filter(.metric == "mae")
 
 ### Mean absolute error between actual values and mean value ----
-mean_value <- wine_train$quality %>% 
+mean_value <- wine_train$quality %>%
   mean()
 mean_value
 
-MAE <- function(actual, predicted) {
+mae <- function(actual, predicted) {
   mean(abs(actual - predicted))
 }
 
-MAE(wine_test$quality, mean_value)
+mae(wine_test$quality, mean_value)
 
 
 ## 5. Improving model performance ----
@@ -151,7 +151,7 @@ wine_test_pred_cubist <- predict(
 wine_test_pred_cubist
 
 ### Summary statistics about the predictions ----
-wine_test_pred_cubist %>% 
+wine_test_pred_cubist %>%
   summary()
 
 ### Add the predictions to the test tibble ----
@@ -160,7 +160,7 @@ wine_test_with_pred_cubist
 
 ### Compare the distribution of actual values vs. predicted values ----
 wine_test_with_pred_cubist %>%
-  select(quality, .pred) %>% 
+  select(quality, .pred) %>%
   summary()
 
 ### Correlation between the true and predicted values ----
@@ -169,8 +169,8 @@ wine_test_with_pred_cubist %>%
   correlate()
 
 ### Mean absolute error of true and predicted values ----
-wine_test_with_pred_cubist %>% 
-  metrics(quality, .pred) %>% 
+wine_test_with_pred_cubist %>%
+  metrics(quality, .pred) %>%
   filter(.metric == "mae")
 
 
@@ -179,7 +179,7 @@ wine_test_with_pred_cubist %>%
 # The assumption here is that you have already taken step 1.
 
 # Preparing and exploring the other wine dataset
-red_wine_tbl <- read_csv("regression_methods/data/redwines.csv") %>% 
+red_wine_tbl <- read_csv("regression_methods/data/redwines.csv") %>%
   rename_all(
     ~str_replace_all(., "\\s+", "_") %>%
       tolower()
@@ -187,7 +187,7 @@ red_wine_tbl <- read_csv("regression_methods/data/redwines.csv") %>%
 red_wine_tbl
 
 ### The distribution of quality ratings ----
-red_wine_tbl %>% 
+red_wine_tbl %>%
   ggplot(aes(quality)) +
   geom_histogram()
 
@@ -199,21 +199,21 @@ summary(red_wine_tbl)
 predict_wine_quality <- function(
   .engine    = c("rpart", "Cubist"),
   .winecolor = c("red", "white")
-){
-  
+) {
+
   # Check that the wine color is valid
   if (!.winecolor %in% c("red", "white")) stop("Choose a wine color: red or white")
-  
+
   # Write out the path so that you can insert the wine color in there
-  path = str_glue("regression_methods/data/{.winecolor}wines.csv")
-  
+  path <- str_glue("regression_methods/data/{.winecolor}wines.csv")
+
   # Read in the data
-  wine_tbl <- read_csv(path) %>% 
+  wine_tbl <- read_csv(path) %>%
     rename_all(
       ~str_replace_all(., "\\s+", "_") %>%
         tolower()
     )
-  
+
   # Make the train/test split. It's not randomizing, as the data already is
   wine_split <- initial_time_split(
     wine_tbl,
@@ -221,44 +221,44 @@ predict_wine_quality <- function(
   )
   wine_train <- training(wine_split)
   wine_test  <- testing(wine_split)
-  
+
   # Create the model based on the engine chosen
   if (.engine == "rpart") {
-    
+
     model_spec <- decision_tree(
       mode            = "regression",
       engine          = "rpart"
     ) %>%
       translate()
-    
+
   } else if (.engine == "Cubist") {
-    
+
     model_spec <- cubist_rules(
       mode            = "regression",
       engine          = "Cubist"
     ) %>%
       translate()
-    
+
   } else {
-    
+
     stop("Choose an engine: rpart (decision tree) or Cubist (rules)")
-    
+
   }
-  
+
   # Fit the model
   model_fit <- fit(
     model_spec,
     quality ~ .,
     wine_train
   )
-  
+
   # Add the predictions
   wine_test_with_pred_tbl <- augment(model_fit, wine_test)
-  
+
   # Get the metrics
   wine_test_with_pred_tbl %>%
     metrics(quality, .pred)
-  
+
 }
 
 ### Test the function ----

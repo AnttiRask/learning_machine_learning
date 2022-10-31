@@ -17,28 +17,28 @@ library(GGally)
 
 
 ## 2. Exploring and preparing the data ----
-insurance_tbl <- read_csv("regression_methods/data/insurance.csv") 
+insurance_tbl <- read_csv("regression_methods/data/insurance.csv")
 glimpse(insurance_tbl)
 
 ### Summarize the data ----
 insurance_tbl %>%
-  mutate(across(where(is.character), as_factor)) %>% 
+  mutate(across(where(is.character), as_factor)) %>%
   summary()
 
 ### Histogram of insurance charges ----
-insurance_tbl %>% 
+insurance_tbl %>%
   ggplot(aes(expenses)) +
   geom_histogram(binwidth = 5000)
 
 ### Distribution between regions ----
 insurance_tbl %>%
-  count(region) %>% 
+  count(region) %>%
   mutate(pct = (n / sum(n) * 100))
 
 ### Exploring relationships among features: correlation matrix ----
 insurance_tbl %>%
-  select(c("age", "bmi", "children", "expenses")) %>% 
-  as.matrix() %>% 
+  select(c("age", "bmi", "children", "expenses")) %>%
+  as.matrix() %>%
   correlate()
 
 ### Visualing relationships among features: scatterplot matrix ----
@@ -87,11 +87,11 @@ summary(model_fit$fit)
 ## 5. Improving model performance ----
 
 ### Add a higher-order "age" term ----
-insurance_augmented_tbl <- insurance_baked_tbl %>% 
+insurance_augmented_tbl <- insurance_baked_tbl %>%
   mutate(age2 = age ^ 2,
-         
+
          ### Add an indicator for BMI >= 30 ----
-         bmi30 = 
+         bmi30 =
            case_when(
              bmi >= 30 ~ 1,
              TRUE      ~ 0
@@ -103,8 +103,9 @@ insurance_augmented_tbl <- insurance_baked_tbl %>%
 recipe_augmented_obj <- recipe(
   expenses ~ .,
   data = insurance_augmented_tbl
-) %>% 
-  # This step is needed for the next step, adding the interaction between bmi30 and smoker
+) %>%
+  # This step is needed for the next step,
+  # adding the interaction between bmi30 and smoker
   step_dummy(smoker) %>%
   # Dummy variables need to be specified with starts_with()
   step_interact(terms = ~ bmi30:starts_with("smoker"))
@@ -150,7 +151,7 @@ insurance_pred_tbl
 
 ### See the correlation between the actual and predicted expenses ----
 insurance_pred_tbl %>%
-  select(.pred, expenses) %>% 
+  select(.pred, expenses) %>%
   correlate()
 
 # Or with the more simple vectorized version:
@@ -165,7 +166,7 @@ insurance_pred_tbl %>%
     slope     = 1,
     color     = "red",
     size      = 0.5,
-    linetype  = "dashed" 
+    linetype  = "dashed"
   ) +
   labs(
     x = "Predicted Expenses",
@@ -173,7 +174,7 @@ insurance_pred_tbl %>%
   )
 
 ### See the model metrics ----
-insurance_model_metrics <- insurance_pred_tbl %>% 
+insurance_model_metrics <- insurance_pred_tbl %>%
   metrics(
     truth    = expenses,
     estimate = .pred
@@ -242,30 +243,30 @@ predict_medical_expenses <- function(
   .region = c("northeast", "northwest", "southeast", "southwest"),
   .sex    = c("female, male"),
   .smoker = c("no", "yes")
-){
-  
+) {
+
   .bmi30 <- if_else(
     condition = .bmi >= 30,
     true      = 1,
     false     = 0,
     missing   = NULL
   )
-  
+
   .smoker_yes <- if_else(
     condition = .smoker == "yes",
     true      = 1,
     false     = 0,
     missing   = NULL
   )
-  
+
   .bmi30_x_smoker_yes <- if_else(
     condition = .bmi30 == TRUE && .smoker_yes == TRUE,
     true      = 1,
     false     = 0,
     missing   = NULL
   )
-  
-  prediction <- predict(
+
+  .prediction <- predict(
     model_fit_augmented,
     tibble(
       age                = .age,
@@ -279,9 +280,9 @@ predict_medical_expenses <- function(
       smoker_yes         = .smoker_yes
     )
   )
-  
-  str_glue("The predicted medical expenses according to the given parameters are: ${prediction %>% round(0)}")
-  
+
+  str_glue("The predicted medical expenses according to the given parameters are: ${.prediction %>% round(0)}")
+
 }
 
 ### Test the function ----

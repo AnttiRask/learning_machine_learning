@@ -130,17 +130,17 @@ classify_with_c5_rules <- function(
     .trees           = NULL,
     .min_n           = NULL
 ) {
-
+    
     # Create the recipe
     recipe_obj <- recipe(
         type ~ .,
         data = mushroom_selected_tbl
     )
-
+    
     mushroom_baked_tbl <- recipe_obj %>%
         prep() %>%
         bake(new_data = NULL)
-
+    
     # Model specification
     model_spec <- C5_rules(
         mode            = "classification",
@@ -149,31 +149,31 @@ classify_with_c5_rules <- function(
         min_n           = .min_n
     ) %>%
         translate()
-
+    
     # Fit the model
     model_fit <- fit(
         model_spec,
         type ~ .,
         mushroom_baked_tbl
     )
-
+    
     model_fit %>%
         extract_fit_engine() %>%
         summary()
-
+    
     # Add the predictions to the test tibble
     mushroom_pred_tbl <- augment(model_fit, mushroom_baked_tbl)
     mushroom_pred_tbl
-
+    
     # Create a confusion matrix
     conf_mat <- conf_mat(
         data     = mushroom_pred_tbl,
         truth    = type,
         estimate = .pred_class
     )
-
+    
     conf_mat %>% autoplot(type = "heatmap")
-
+    
 }
 
 ### Test the function ----

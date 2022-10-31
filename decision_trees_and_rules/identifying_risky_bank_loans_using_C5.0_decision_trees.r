@@ -247,34 +247,34 @@ classify_with_c5_trees <- function(
     .trees           = NULL, # for boost_tree
     .min_n           = 1     # for both
 ) {
-
+    
     # Create the recipe
     recipe_obj <- recipe(
         default ~ .,
         data = credit_tbl
     ) %>%
         step_string2factor(all_nominal())
-
+    
     credit_factorized_tbl <- recipe_obj %>%
         prep() %>%
         bake(new_data = NULL)
-
+    
     # Create training and test data (randomly)
     RNGversion("3.5.2")
     set.seed(123)
-
+    
     credit_split <- initial_split(
         credit_factorized_tbl,
         prop = 0.9
     )
     credit_train <- training(credit_split)
     credit_test  <- testing(credit_split)
-
+    
     # Model specification
     model <- .model
-
+    
     if (model == "decision_tree") {
-
+        
         model_spec <- decision_tree(
             mode            = .mode,
             engine          = .engine,
@@ -282,9 +282,9 @@ classify_with_c5_trees <- function(
             min_n           = .min_n
         ) %>%
             translate()
-
+        
     } else if (model == "boost_tree") {
-
+        
         model_spec <- boost_tree(
             mode            = .mode,
             engine          = .engine,
@@ -292,33 +292,33 @@ classify_with_c5_trees <- function(
             min_n           = .min_n
         ) %>%
             translate()
-
+        
     } else {
-
+        
         stop("The model needs to be either decision_tree or boost_tree!")
-
+        
     }
-
+    
     # Fit the model
     model_fit <- fit(
         model_spec,
         default ~ .,
         credit_train
     )
-
+    
     # Add the predictions to the test tibble
     credit_test_with_pred_tbl <- augment(model_fit, credit_test)
     credit_test_with_pred_tbl
-
+    
     # Create a confusion matrix
     conf_mat <- conf_mat(
         data     = credit_test_with_pred_tbl,
         truth    = default,
         estimate = .pred_class
     )
-
+    
     conf_mat %>% autoplot(type = "heatmap")
-
+    
 }
 
 ### Test the function ----

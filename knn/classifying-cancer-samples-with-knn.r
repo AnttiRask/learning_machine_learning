@@ -206,10 +206,10 @@ classify_with_knn <- function(
     k = 21,
     standardization_method = c("range", "normalization")
 ) {
-
+    
     # Create a recipe according to the chosen standardization method
     if (standardization_method == "range") {
-
+        
         recipe_obj <- recipe(
             formula = diagnosis ~ .,
             data    = wbcd_factored_tbl
@@ -218,25 +218,25 @@ classify_with_knn <- function(
                 all_numeric_predictors(),
                 min = 0,
                 max = 1)
-
+        
     } else if (standardization_method == "normalization") {
-
+        
         recipe_obj <- recipe(
             formula = diagnosis ~ .,
             data    = wbcd_factored_tbl
         ) %>%
             step_normalize(all_numeric_predictors())
-
+        
     } else {
-
+        
         stop('Choose a starndardization method that is either "range" or "normalization"!')
-
+        
     }
-
+    
     wbcd_normalized_tbl <- recipe_obj %>%
         prep() %>%
         bake(new_data = wbcd_factored_tbl)
-
+    
     # Create training and test data
     wbcd_split <- initial_split(
         wbcd_normalized_tbl,
@@ -244,7 +244,7 @@ classify_with_knn <- function(
     )
     wbcd_train <- training(wbcd_split)
     wbcd_test  <- testing(wbcd_split)
-
+    
     # Create model specification
     model_spec <- nearest_neighbor(
         engine      = "kknn",
@@ -252,24 +252,24 @@ classify_with_knn <- function(
         neighbors   = k
     ) %>%
         translate()
-
+    
     # Fit the model
     model_fit <- fit(
         model_spec,
         diagnosis ~ .,
         wbcd_train
     )
-
+    
     # Add the predictions to the test tibble
     wbcd_test_with_pred_tbl <- augment(model_fit, wbcd_test)
-
+    
     # Create a confusion matrix
     conf_mat <- conf_mat(
         data     = wbcd_test_with_pred_tbl,
         truth    = diagnosis,
         estimate = .pred_class
     )
-
+    
     # Print the confusion matrix
     conf_mat %>% autoplot(type = "heatmap")
 }

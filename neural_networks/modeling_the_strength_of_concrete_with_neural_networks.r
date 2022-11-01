@@ -19,7 +19,8 @@ library(corrr)
 
 ### Read in data and examine structure ----
 concrete_tbl <- read_csv("neural_networks/data/concrete.csv")
-glimpse(concrete_tbl)
+
+concrete_tbl %>% glimpse()
 
 ### Check the minimum and maximum strength ----
 concrete_tbl %>%

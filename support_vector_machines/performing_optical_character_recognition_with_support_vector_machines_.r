@@ -20,7 +20,9 @@ library(janitor)
 ### Read in data and examine structure ----
 letters_tbl <- read_csv("support_vector_machines/data/letterdata.csv") %>%
   mutate(across(where(is.character), as.factor))
-glimpse(letters_tbl)
+
+letters_tbl %>% 
+  glimpse()
 
 
 ## 3. Creating the recipe ----

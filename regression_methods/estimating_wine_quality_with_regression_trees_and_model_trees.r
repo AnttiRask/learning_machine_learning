@@ -9,7 +9,9 @@
 # You can find the original code and the dataset here:
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter06
 
-## 1. Loading libraries ----
+## 1. Loading libraries (in the order they get used) ----
+library(conflicted)
+  conflict_prefer("filter", "dplyr", "stats")
 library(tidyverse)
 library(tidymodels)
 library(rattle)

@@ -9,7 +9,7 @@
 # You can find the original code and the dataset here:
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter06
 
-## 1. Loading libraries ----
+library(conflicted)
 library(tidyverse)
 library(corrr)
 library(tidymodels)

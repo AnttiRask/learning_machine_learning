@@ -10,7 +10,8 @@
 # You can find the original code here:
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter03
 
-## 1. Loading libraries ----
+## 1. Loading libraries (in the order they get used)----
+library(conflicted)
 library(tidymodels)
 library(tidyverse)
 

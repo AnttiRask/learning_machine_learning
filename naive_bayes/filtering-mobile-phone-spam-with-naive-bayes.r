@@ -11,7 +11,9 @@
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter04
 
 ## 1. Loading libraries (in the order they get used) ----
+library(conflicted)
 library(tidyverse)
+  conflict_prefer("filter", "dplyr", "stats")
 library(tidytext)
 library(SnowballC)   # for stemming
 library(wordcloud2)

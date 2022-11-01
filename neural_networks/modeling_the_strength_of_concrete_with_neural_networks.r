@@ -10,6 +10,7 @@
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter07
 
 ## 1. Loading libraries (in the order they get used) ----
+library(conflicted)
 library(tidyverse)
 library(tidymodels)
 library(corrr)

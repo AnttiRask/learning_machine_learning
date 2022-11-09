@@ -36,11 +36,13 @@ groceries[, 1:3] %>%
     itemFrequency()
 
 ### Plot the frequency of items ----
+par(mar = c(1, 1, 1, 1)) # Have to adjust the margins or there will be an error
+
 groceries %>%
     itemFrequencyPlot(support = 0.1)
 
 groceries %>%
-    itemFrequencyPlot(topN = 20)
+    itemFrequencyPlot(topN = 10)
 
 ### A visualization of the sparse matrix for the first five transactions ----
 groceries[1:5] %>%
@@ -81,7 +83,7 @@ groceryrules[1:3] %>%
 # Visualize the rules ----
 groceryrules %>% plot(
     method = "graph",
-    limit  = 5
+    limit  = 10
 )
 
 

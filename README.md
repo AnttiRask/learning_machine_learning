@@ -7,11 +7,11 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 * Naive Bayes
 * Decision Trees and Rules
 * Regression Methods 
-* Neural Networks __NEW__
-* Support Vector Machines __NEW__
+* Neural Networks
+* Support Vector Machines
+* Association Rules __NEW__
 
 ## Coming up next:
-* Association Rules
 * Clustering
 * Bagging
 * Boosting

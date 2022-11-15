@@ -9,10 +9,10 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 * Regression Methods 
 * Neural Networks
 * Support Vector Machines
-* Association Rules __NEW__
+* Association Rules
+* Clustering __NEW__
 
 ## Coming up next:
-* Clustering
 * Bagging
 * Boosting
 * Random Forest

@@ -4,15 +4,16 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 
 ## Algorithms tackled (see the named folder(s) for examples):
 * K-nearest neighbors (k-NN)
-* Naive Bayes
-* Decision Trees and Rules
+* Naive Bayes __UPDATED__
+* Decision Trees and Rules __UPDATED__
 * Regression Methods 
 * Neural Networks
 * Support Vector Machines
 * Association Rules
-* Clustering __NEW__
+* Clustering
 
 ## Coming up next:
+* Tuning
 * Bagging
 * Boosting
 * Random Forest

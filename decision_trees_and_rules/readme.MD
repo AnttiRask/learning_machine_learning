@@ -1,8 +1,9 @@
 # Identifying Risky Bank Loans Using C5.0 Decision Trees /
 # Identifying Poisonous Mushrooms with Rule Learners
 
-Inspired by Brett Lantz's Machine Learning with R, Chapter 5:
-Divide and Conquer - Classification Using Decision Trees and Rules.
+Inspired by Brett Lantz's Machine Learning with R,<br>
+Chapter 5: Divide and Conquer - Classification Using Decision Trees and Rules and<br>
+Chapter 10: Evaluating Model Performance.
 
 The original code is made with {C50}, {gmodels}, {OneR} and {RWeka}. I 
 wanted to see how one could recreate it using mainly {tidymodels} and
@@ -12,6 +13,7 @@ If you haven't already, buy the book:<br> https://www.packtpub.com/product/machi
 
 You can find the original code and the slightly modified datasets here:<br>
 https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter05
+https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter10
 
 Dataset Citation(s):
 

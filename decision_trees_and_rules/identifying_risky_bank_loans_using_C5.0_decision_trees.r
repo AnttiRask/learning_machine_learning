@@ -1,7 +1,8 @@
 # Identifying Risky Bank Loans Using C5.0 Decision Trees ----
 
-# Inspired by Brett Lantz's Machine Learning with R, Chapter 5:
-# Divide and Conquer - Classification Using Decision Trees and Rules.
+# Inspired by Brett Lantz's Machine Learning with R, 
+# Chapter 5: Divide and Conquer - Classification Using Decision Trees and Rules and
+# Chapter 10: Evaluating Model Performance
 #
 # The original code is made with {C50}, {gmodels}, {OneR} and {RWeka}. I
 # wanted to see how one could recreate it using mainly {tidymodels} and
@@ -9,6 +10,7 @@
 #
 # You can find the original code and the slightly modified dataset here:
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter05
+# https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter10
 
 ## 1. Loading libraries (in the order they get used) ----
 library(conflicted)
@@ -234,7 +236,7 @@ classification_metrics_boost_tree <- conf_mat(
 classification_metrics_boost_tree
 
 
-## 6. Creating a function to help evaluate the model further ----
+## 7. Creating a function to help evaluate the model further ----
 
 # The assumption here is that you have already gone through steps 1. to 2.
 # What we're potentially tuning here are the arguments .tree_depth and .min_n
@@ -331,3 +333,62 @@ classify_with_c5_trees(
     .trees           = NULL, # for boost_tree
     .min_n           = 1  # for both, NULL produces error, so > 1 is adviced
 )
+
+
+## 8. Cross-validation ----
+# You might want to restart R (Ctrl + Shift + F10) at this point so you have a
+# clean slate
+
+### Load libraries ----
+library(conflicted)
+library(tidyverse)
+library(tidymodels)
+
+### Load the data ----
+credit_tbl <- read_csv("decision_trees_and_rules/data/credit.csv")
+
+### Create the train-test split ----
+RNGversion("3.5.2")
+set.seed(123)
+
+credit_split <- initial_split(
+    credit_tbl,
+    prop = 0.9
+)
+credit_train <- training(credit_split)
+credit_test  <- testing(credit_split)
+
+### Create the cross-validation folds ----
+set.seed(345)
+folds_train <- vfold_cv(credit_train, v = 10)
+folds_train
+
+### Create recipe, model specification and control ----
+recipe_train <- recipe(
+    default ~ .,
+    data = credit_train
+) %>%
+    step_string2factor(all_nominal())
+
+model_spec <- decision_tree(
+    mode            = "classification",
+    engine          = "C5.0",
+    cost_complexity = NULL,
+    tree_depth      = NULL,
+    min_n           = NULL
+) %>%
+    translate()
+
+control <- control_resamples(save_pred = TRUE)
+
+### Fit the samples ----
+spline_res_train <- fit_resamples(
+    object       = model_spec,
+    preprocessor = recipe_train,
+    resamples    = folds_train,
+    control      = control
+)
+
+### Look at the model metrics ----
+spline_res_train %>%
+collect_metrics()

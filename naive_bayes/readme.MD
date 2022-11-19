@@ -8,8 +8,9 @@ The original code is made with a lot of base R, {e1071} and {gmodels}. I wanted 
 
 If you haven't already, buy the book: https://www.packtpub.com/product/machine-learning-with-r-third-edition/9781788295864
 
-You can find the original code and the slightly modified dataset here:
-https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter04
+You can find the original code and the slightly modified dataset here:<br>
+https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter04<br>
+https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter10
 
 Dataset Citation:
 [1] Gómez Hidalgo, J.M., Cajigas Bringas, G., Puertas Sãnz, E., Carrero García, F. Content Based SMS Spam Filtering. Proceedings of the 2006 ACM Symposium on Document Engineering (ACM DOCENG'06), Amsterdam, The Netherlands, 10-13, 2006.

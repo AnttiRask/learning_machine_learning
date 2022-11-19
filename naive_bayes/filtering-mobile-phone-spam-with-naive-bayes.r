@@ -1,25 +1,29 @@
 # Filtering Mobile Phone Spam with the Naive Bayes Algorithm ----
 
-# Inspired by Brett Lantz's Machine Learning with R, Chapter 4:
-# Probabilistic Learning - Classification Using Naive Bayes.
+# Inspired by Brett Lantz's Machine Learning with R,
+# Chapter 4: Probabilistic Learning - Classification Using Naive Bayes and
+# Chapter 10: Evaluating Model Performance
 #
 # The original code is made with a lot of base R, {e1071} and {gmodels}. I
 # wanted to see how one could recreate it using mainly {textrecipes},
 # {tidymodels}, {tidytext} and {tidyverse}.
 #
-# You can find the original code and the slightly modified dataset here:
+# You can find the original code and the slightly modified dataset(s) here:
 # https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter04
+# https://github.com/PacktPublishing/Machine-Learning-with-R-Third-Edition/tree/master/Chapter10
 
 ## 1. Loading libraries (in the order they get used) ----
 library(conflicted)
 library(tidyverse)
-  conflict_prefer("filter", "dplyr", "stats")
+conflict_prefer("filter", "dplyr", "stats")
 library(tidytext)
 library(SnowballC)   # for stemming
 library(wordcloud2)
 library(textrecipes)
 library(tidymodels)
 library(discrim)     # for naive_Bayes()
+library(janitor)
+library(crosstable)
 
 
 ## 2. Exploring and preparing the data ----
@@ -65,14 +69,6 @@ wide_sms_tbl <- tidy_sms_tbl %>%
     values_fill  = 0
   )
 wide_sms_tbl
-
-### Transform the results to a sparse matrix ----
-sparse_sms <- tidy_sms_tbl %>%
-  cast_dfm(line, word, tf_idf)
-sparse_sms
-
-### Compare the difference in memory usage between wide and sparse formats ----
-lobstr::obj_sizes(wide_sms_tbl, sparse_sms)
 
 
 ## 3. Visualizing text data - word clouds ----
@@ -255,6 +251,49 @@ sms_roc_auc <- sms_test_with_pred_tbl %>%
   )
 sms_roc_auc
 
+
+## 7. Compare to k-NN ----
+
+### Read the results ----
+sms_results_knn <- read_csv("naive_bayes/data/sms_results_knn.csv") %>%
+  mutate(p_ham = 1 - p_spam)
+
+### Naive Bayes vs k-NN - ROC curve ----
+
+# Naive Bayes
+sms_test_with_pred_tbl %>%
+  roc_curve(
+    truth    = .type,
+    estimate = .pred_ham
+  ) %>%
+  autoplot()
+
+# k-NN
+sms_test_with_pred_tbl %>%
+  mutate(.knn_p_ham = sms_results_knn$p_ham) %>%
+  roc_curve(
+    truth    = .type,
+    estimate = .knn_p_ham
+  ) %>%
+  autoplot()
+
+### Naive Bayes vs k-NN - AUC ----
+
+# Naive Bayes
+sms_test_with_pred_tbl %>%
+  roc_auc(
+    truth    = .type,
+    estimate = .pred_ham
+  )
+
+# k-NN
+sms_test_with_pred_tbl %>%
+  mutate(.knn_p_ham = sms_results_knn$p_ham) %>%
+  roc_auc(
+    truth    = .type,
+    estimate = .knn_p_ham
+  )
+
 ### Put together other model metrics ----
 # Such as accuracy, Matthews correlation coefficient (mcc) and others...
 classification_metrics <- conf_mat(
@@ -266,7 +305,7 @@ classification_metrics <- conf_mat(
 classification_metrics
 
 
-## 7. Improving model performance ----
+## 8. Improving model performance ----
 
 # Basically, the same as before, but with Laplace = 1
 
@@ -301,7 +340,7 @@ sms_test_with_pred_tbl <- augment(model_fit, sms_test)
 sms_test_with_pred_tbl
 
 
-## 6. Evaluating model performance ----
+## 9. Evaluating model performance ----
 
 ### Create a confusion matrix ----
 conf_mat <- conf_mat(
@@ -342,7 +381,7 @@ classification_metrics <- conf_mat(
 classification_metrics
 
 
-## 8. Creating a function to help evaluate the model further ----
+## 10. Creating a function to help evaluate the model further ----
 
 # The assumption here is that you have already gone through steps 1. to 4.
 # What we're potentially tuning here are the arguments .smoothness and .Laplace
@@ -392,3 +431,52 @@ classify_with_naive_bayes(
   .smoothness  = 1,
   .laplace     = 1
 )
+
+
+## 11. Understanding the classifier's predictions ----
+
+### Obtain the predicted probabilities (you could skip this step) ----
+sms_test_prob <- predict(
+  object   = model_fit,
+  new_data = sms_test,
+  type     = "prob"
+)
+sms_test_prob
+
+### Look at the predicted probabilities ----
+sms_results <- sms_test_with_pred_tbl %>%
+  select(
+    actual_type    = .type,
+    predicted_type = .pred_class,
+    prob_spam      = .pred_spam,
+    prob_ham       = .pred_ham
+  ) %>%
+  mutate(
+    prob_spam = prob_spam %>% round(2),
+    prob_ham  = prob_ham %>% round(2)
+  )
+sms_results
+
+### Test cases where the model is less confident ----
+sms_results %>%
+  filter(between(prob_spam, 0.40, 0.60))
+
+### Test cases where the model was wrong ----
+sms_results %>%
+  filter(actual_type != predicted_type)
+
+### Specifying vectors ----
+sms_results %>%
+  tabyl(actual_type, predicted_type)
+
+### Using {crosstable} ----
+sms_results %>%
+  crosstable(
+    cols            = actual_type,
+    by              = predicted_type,
+    label           = FALSE,
+    total           = "both",
+    percent_pattern = "{n} ({p_row}/{p_col})",
+    percent_digits  = 1
+  ) %>%
+  as_flextable(compact = TRUE)

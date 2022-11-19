@@ -1,6 +1,8 @@
 # Filtering Mobile Phone Spam with Naive Bayes
 
-Inspired by Brett Lantz's Machine Learning with R, Chapter 4: Probabilistic Learning - Classification Using Naive Bayes.
+Inspired by Brett Lantz's Machine Learning with R,<br>
+Chapter 4: Probabilistic Learning - Classification Using Naive Bayes and<br>
+Chapter 10: Evaluating Model Performance.
 
 The original code is made with a lot of base R, {e1071} and {gmodels}. I wanted to see how one could recreate it using mainly {textrecipes}, {tidymodels}, {tidytext} and {tidyverse}.
 

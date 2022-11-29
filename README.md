@@ -13,7 +13,7 @@ I'm learning ML with R. Focusing on (but not limiting myself to) tidyverse and t
 * Clustering
 
 ## Coming up next:
-* Tuning
+* Hyperparameter Optimization
 * Bagging
 * Boosting
 * Random Forest

@@ -389,6 +389,18 @@ spline_res_train <- fit_resamples(
     control      = control
 )
 
-### Look at the model metrics ----
+### Look at the summarized model metrics ----
 spline_res_train %>%
-collect_metrics()
+    collect_metrics()
+
+### Look at the individual model metrics ----
+spline_res_train %>%
+    collect_metrics(summarize = FALSE) %>% 
+    ggplot(
+        aes(
+            x    = .estimate,
+            fill = .metric
+        )
+    ) +
+    geom_histogram()
+

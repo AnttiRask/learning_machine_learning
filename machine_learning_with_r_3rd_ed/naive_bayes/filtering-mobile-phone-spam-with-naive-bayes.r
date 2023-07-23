@@ -15,7 +15,7 @@
 ## 1. Loading libraries (in the order they get used) ----
 library(conflicted)
 library(tidyverse)
-conflict_prefer("filter", "dplyr", "stats")
+    conflict_prefer("filter", "dplyr", "stats")
 library(tidytext)
 library(SnowballC)   # for stemming
 library(wordcloud2)
@@ -30,7 +30,7 @@ library(crosstable)
 
 ### Read the sms data into the sms tibble, convert spam/ham to factor ----
 sms_tbl <- read_csv(
-  "naive_bayes/data/sms_spam.csv",
+  "machine_learning_with_r_3rd_ed/naive_bayes/data/sms_spam.csv",
   col_types = "fc"
 ) %>%
   select(.type = type, everything())
@@ -255,7 +255,7 @@ sms_roc_auc
 ## 7. Compare to k-NN ----
 
 ### Read the results ----
-sms_results_knn <- read_csv("naive_bayes/data/sms_results_knn.csv") %>%
+sms_results_knn <- read_csv("machine_learning_with_r_3rd_ed/naive_bayes/data/sms_results_knn.csv") %>%
   mutate(p_ham = 1 - p_spam)
 
 ### Naive Bayes vs k-NN - ROC curve ----

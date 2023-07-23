@@ -19,7 +19,7 @@ library(janitor)
 ## 2. Exploring and preparing the data ----
 
 ### Read in data and examine structure ----
-letters_tbl <- read_csv("support_vector_machines/data/letterdata.csv") %>%
+letters_tbl <- read_csv("machine_learning_with_r_3rd_ed/support_vector_machines/data/letterdata.csv") %>%
   mutate(across(where(is.character), as.factor))
 
 letters_tbl %>% 

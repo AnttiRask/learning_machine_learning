@@ -24,7 +24,7 @@ library(tidymodels)
 
 
 ## 2. Exploring and preparing the data ----
-teens_tbl <- read_csv("k_means_clustering/data/snsdata.csv")
+teens_tbl <- read_csv("machine_learning_with_r_3rd_ed/k_means_clustering/data/snsdata.csv")
 
 teens_tbl %>%
     glimpse()

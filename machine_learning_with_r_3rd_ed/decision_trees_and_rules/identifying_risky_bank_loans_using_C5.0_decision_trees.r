@@ -18,7 +18,7 @@ library(tidyverse)
 library(tidymodels)
 
 ## 2. Exploring and preparing the data ----
-credit_tbl <- read_csv("decision_trees_and_rules/data/credit.csv")
+credit_tbl <- read_csv("machine_learning_with_r_3rd_ed/decision_trees_and_rules/data/credit.csv")
 
 ### Examine the structure of the credit data ----
 glimpse(credit_tbl)
@@ -345,7 +345,7 @@ library(tidyverse)
 library(tidymodels)
 
 ### Load the data ----
-credit_tbl <- read_csv("decision_trees_and_rules/data/credit.csv")
+credit_tbl <- read_csv("machine_learning_with_r_3rd_ed/decision_trees_and_rules/data/credit.csv")
 
 ### Create the train-test split ----
 RNGversion("3.5.2")
@@ -403,4 +403,3 @@ spline_res_train %>%
         )
     ) +
     geom_histogram()
-

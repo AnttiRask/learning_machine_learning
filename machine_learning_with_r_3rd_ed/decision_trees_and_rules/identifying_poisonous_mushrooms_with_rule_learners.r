@@ -17,7 +17,7 @@ library(tidymodels)
 library(rules)
 
 ## 2. Exploring and preparing the data ----
-mushrooms_tbl <- read_csv("decision_trees_and_rules/data/mushrooms.csv")
+mushrooms_tbl <- read_csv("machine_learning_with_r_3rd_ed/decision_trees_and_rules/data/mushrooms.csv")
 
 ### Examine the data ----
 mushrooms_tbl %>% map(unique)

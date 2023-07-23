@@ -21,7 +21,7 @@ library(arulesViz)
 
 ### Load the grocery data into a sparse matrix ----
 groceries <- read.transactions(
-    "association_rules/data/groceries.csv",
+    "machine_learning_with_r_3rd_ed/association_rules/data/groceries.csv",
     sep = ","
 )
 summary(groceries)

@@ -55,7 +55,7 @@ library(tidyverse)
 )
 
 ### Import the CSV file (Breast Cancer Wisconsin (Diagnostic)) ----
-wbcd_tbl <- read_csv("knn/data/wdbc-data.csv", col_names = .col_names)
+wbcd_tbl <- read_csv("machine_learning_with_r_3rd_ed/knn/data/wdbc-data.csv", col_names = .col_names)
 
 ### Take a look at the tibble ----
 glimpse(wbcd_tbl)

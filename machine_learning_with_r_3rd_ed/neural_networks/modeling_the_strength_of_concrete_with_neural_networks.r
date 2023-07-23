@@ -19,7 +19,7 @@ library(corrr)
 ## 2. Exploring and preparing the data ----
 
 ### Read in data and examine structure ----
-concrete_tbl <- read_csv("neural_networks/data/concrete.csv")
+concrete_tbl <- read_csv("machine_learning_with_r_3rd_ed/neural_networks/data/concrete.csv")
 
 concrete_tbl %>% glimpse()
 

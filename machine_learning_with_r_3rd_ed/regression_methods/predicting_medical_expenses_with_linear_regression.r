@@ -17,7 +17,7 @@ library(GGally)
 
 
 ## 2. Exploring and preparing the data ----
-insurance_tbl <- read_csv("regression_methods/data/insurance.csv")
+insurance_tbl <- read_csv("machine_learning_with_r_3rd_ed/regression_methods/data/insurance.csv")
 glimpse(insurance_tbl)
 
 ### Summarize the data ----

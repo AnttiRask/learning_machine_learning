@@ -17,8 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(conflicted) # An Alternative Conflict Resolution Strategy
     conflicts_prefer(dplyr::filter)
     conflicts_prefer(janitor::chisq.test)
-library(crosstable)
-library(janitor)
+library(crosstable) # Crosstables for Descriptive Analyses
+library(janitor)    # Simple Tools for Examining and Cleaning Dirty Data
 library(tidyverse)  # Easily Install and Load the 'Tidyverse'
 ```
 
@@ -547,3 +547,4 @@ usedcars_conservative %>%
     tabyl(model, conservative) %>%
     chisq.test()
 ```
+

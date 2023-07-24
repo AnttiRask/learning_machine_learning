@@ -1,0 +1,549 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 2: Managing and Understanding Data"
+author: "Original Code: Brett Lantz | Modifications: Antti Rask"
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 2 Managing and Understanding Data
+
+## Load Packages
+
+```{r}
+library(conflicted) # An Alternative Conflict Resolution Strategy
+    conflicts_prefer(dplyr::filter)
+    conflicts_prefer(janitor::chisq.test)
+library(crosstable)
+library(janitor)
+library(tidyverse)  # Easily Install and Load the 'Tidyverse'
+```
+
+## Data
+
+```{r}
+# create tibble of data for three medical patients
+patients_tbl <- tibble(
+    subject_name = c("John Doe", "Jane Doe", "Steve Graves"),
+    temperature  = c(98.1, 98.6, 101.4),
+    flu_status   = c(FALSE, FALSE, TRUE),
+    gender       = factor(c("MALE", "FEMALE", "MALE")),
+    blood        = factor(
+        c("O", "AB", "A"),
+        levels = c("A", "B", "AB", "O")
+    ),
+    symptoms     = factor(
+        c("SEVERE", "MILD", "MODERATE"),
+        levels = c("MILD", "MODERATE", "SEVERE"),
+        ordered = TRUE
+    )
+)
+
+patients_tbl
+```
+
+## R data structures
+
+### Vectors -> Tibble
+
+```{r}
+# access the second body temperature
+patients_tbl %>%
+    slice(2) %>%
+    pull(temperature)
+```
+
+```{r}
+# access body temperature for the second and third patient
+patients_tbl %>%
+    slice(2:3) %>%
+    pull(temperature)
+```
+
+```{r}
+# access body temperature for all but the second patient
+patients_tbl %>%
+    slice(-2) %>%
+    pull(temperature)
+```
+
+```{r}
+# Use a vector to indicate whether to include item
+patients_tbl %>%
+    filter(c(TRUE, TRUE, FALSE)) %>%
+    pull(temperature)
+```
+
+```{r}
+# filter rows by conditions
+patients_tbl %>%
+    filter(temperature > 100) %>% 
+    pull(subject_name)
+```
+
+### Factors
+
+```{r}
+# check gender factors
+patients_tbl %>%
+    pull(gender)
+```
+
+```{r}
+# check blood type factors
+patients_tbl %>% 
+    pull(blood)
+```
+
+```{r}
+# check symptom factors
+patients_tbl %>%
+    pull(symptoms)
+```
+
+```{r}
+# check for symptoms greater than moderate
+patients_tbl %>%
+    mutate(symptoms_severe = symptoms > "MODERATE") %>% 
+    pull(symptoms_severe)
+```
+
+### Lists/Tibble
+
+```{r}
+# display information for a patient
+patients_tbl %>%
+    slice(1)
+```
+
+```{r}
+# convert the tibble to a list
+patient_1_list <- patients_tbl %>%
+    slice(1) %>% 
+    as.list()
+
+patient_1_list
+```
+
+#### Methods for Accessing a List
+
+```{r}
+# get a single list value by position (returns a sub-list)
+patient_1_list[2]
+```
+
+```{r}
+# get a single list value by position (returns a numeric vector)
+patient_1_list %>% 
+    pluck(2)
+```
+
+```{r}
+# get a single list value by name
+patient_1_list %>% 
+    pluck("temperature")
+```
+
+```{r}
+# get several list items by specifying a vector of names
+patient_1_list[c("temperature", "flu_status")]
+```
+#### Access a List Like a Vector
+
+```{r}
+# get values 2 and 3
+patient_1_list[2:3]
+```
+
+### Tibble
+
+#### Accessing a tibble
+
+```{r}
+# display the data tibble
+patients_tbl
+```
+
+```{r}
+# get a single column
+patients_tbl %>%
+    pull(subject_name)
+```
+
+```{r}
+# get several columns by specifying a vector of names
+patients_tbl %>% 
+    select(c("temperature", "flu_status"))
+```
+
+```{r}
+# this is the same as above, extracting temperature and flu_status
+patients_tbl %>% 
+    select(2:3)
+```
+
+```{r}
+# accessing by row and column
+patients_tbl %>% 
+    slice(c(1, 3)) %>%
+    select(c(2, 4))
+```
+
+#### Extract All Rows or Columns
+
+```{r}
+# column 1, all rows
+patients_tbl %>% 
+    pull(1)
+```
+
+```{r}
+# row 1, all columns
+patients_tbl %>%
+    slice(1)
+```
+
+```{r}
+# all rows and all columns
+patients_tbl
+```
+
+```{r}
+# the following are equivalent
+patients_tbl %>% 
+    slice(c(1, 3)) %>%
+    select(c(temperature, gender))
+
+patients_tbl %>%
+    slice(-2) %>%
+    select(c(-1, -3, -5, -6))
+```
+
+```{r}
+# creating a Celsius temperature column, then comparing before and after
+patients_tbl %>%
+    mutate(temp_c = (temperature - 32) * (5 / 9)) %>%
+    select(temperature, temp_c)
+```
+
+### Matrixes
+
+```{r}
+# create a 2x2 matrix
+matrix(c(1, 2, 3, 4), nrow = 2)
+```
+
+```{r}
+# equivalent to the above
+matrix(c(1, 2, 3, 4), ncol = 2)
+```
+
+```{r}
+# create a 2x3 matrix
+matrix(c(1, 2, 3, 4, 5, 6), nrow = 2)
+```
+
+```{r}
+# create a 3x2 matrix
+m <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
+m
+```
+
+```{r}
+# extract values from matrixes
+m[1, 1]
+m[3, 2]
+```
+
+```{r}
+# extract rows
+m[1, ]
+```
+
+```{r}
+# extract columns
+m[, 1]
+```
+
+## Managing data with R
+
+#### Saving, Loading, and Removing R Data Structures
+
+```{r}
+# show all data structures in memory
+ls()
+```
+
+```{r}
+# remove the m and patient_1_list objects
+rm(m, patient_1_list)
+ls()
+```
+
+```{r}
+# remove all (remaining) objects
+rm(list = ls())
+ls()
+```
+
+## Importing and saving datasets from CSV files
+
+```{r}
+# reading a CSV file
+patients_tbl <- read_csv("data/pt_data.csv")
+```
+
+```{r}
+# reading a CSV file and converting all character columns to factors
+patients_factors_tbl <- read_csv(
+    "data/pt_data.csv",
+    col_types      = "cdlff",
+    show_col_types = TRUE
+)
+```
+
+```{r}
+# alternatively reading a CSV file and converting all character columns to factors
+patients_factors_tbl <- read_csv("data/pt_data.csv") %>%
+    mutate(across(where(is.character), as.factor))
+
+patients_factors_tbl
+```
+
+## Exploring and understanding data
+
+### Data Exploration Example Using Used Car Data
+
+```{r}
+usedcars <- read_csv("data/usedcars.csv")
+```
+
+```{r}
+# get structure of used car data
+usedcars %>%
+    str()
+```
+
+### Exploring numeric variables
+
+```{r}
+# summarize numeric variables
+usedcars %>% 
+    select(year, price, mileage) %>% 
+    summary()
+```
+
+```{r}
+# calculate the mean income
+(36000 + 44000 + 56000) / 3
+
+c(36000, 44000, 56000) %>%
+    mean()
+```
+
+```{r}
+# the median income
+c(36000, 44000, 56000) %>%
+    median()
+```
+
+```{r}
+# the min/max of used car prices
+usedcars %>%
+    pull(price) %>% 
+    range()
+```
+
+```{r}
+# the difference of the range
+usedcars %>% 
+    pull(price) %>%
+    range() %>%
+    diff()
+```
+
+```{r}
+# IQR for used car prices
+usedcars %>% 
+    pull(price) %>%
+    IQR()
+```
+
+```{r}
+# use quantile to calculate five-number summary
+usedcars %>%
+    pull(price) %>%
+    quantile()
+```
+
+```{r}
+# the 99th percentile
+usedcars %>% 
+    pull(price) %>% 
+    quantile(
+        probs = c(0.01, 0.99)
+    )
+```
+
+```{r}
+# quintiles
+usedcars %>% 
+    pull(price) %>%
+    quantile(
+        seq(from = 0, to = 1, by = 0.20)
+    )
+```
+
+```{r}
+# boxplot of used car prices and mileage
+usedcars %>%
+    ggplot(aes(y = price)) +
+    geom_boxplot() +
+    labs(
+        title = "Boxplot of Used Car Prices",
+        y     = "Price ($)"
+    ) +
+    theme_classic()
+
+usedcars %>%
+    ggplot(aes(y = mileage)) +
+    geom_boxplot() +
+    labs(
+        title = "Boxplot of Used Car Mileage",
+        y     = "Odometer (mi.)"
+    ) +
+    theme_classic()
+```
+
+```{r}
+# histograms of used car prices and mileage
+usedcars %>%
+    ggplot(aes(price)) +
+    geom_histogram(
+        bins  = 10,
+        color = "black",
+        fill  = "white"
+    ) +
+    labs(
+        title = "Histogram of Used Car Prices",
+        x     = "Price ($)"
+    ) +
+    theme_classic()
+
+usedcars %>%
+    ggplot(aes(mileage)) +
+    geom_histogram(
+        bins  = 8,
+        color = "black",
+        fill  = "white"
+    ) +
+    labs(
+        title = "Histogram of Used Car Mileage",
+        x     = "Odometer (mi.)"
+    ) +
+    theme_classic()
+```
+
+```{r}
+# variance and standard deviation of the used car data
+usedcars %>%
+    pull(price) %>% 
+    var()
+```
+
+```{r}
+usedcars %>%
+    pull(price) %>%
+    sd()
+```
+
+```{r}
+usedcars %>%
+    pull(mileage) %>%
+    var()
+```
+
+```{r}
+usedcars %>%
+    pull(mileage) %>%
+    sd()
+```
+
+### Exploring categorical features
+
+```{r}
+# one-way tables for the used car data
+usedcars %>% 
+    tabyl(year) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+```{r}
+usedcars %>% 
+    tabyl(model) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+```{r}
+usedcars %>% 
+    tabyl(color) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+```{r}
+# you can also have a three-way table of the same
+usedcars %>% 
+    tabyl(year, model, color)
+```
+
+### Exploring relationships between variables
+
+```{r}
+# scatterplot of price vs. mileage
+usedcars %>%
+    ggplot(aes(mileage, price)) +
+    geom_point() +
+    labs(
+        title = "Scatterplot of Price vs. Mileage",
+        x     = "Used Car Odometer (mi.)",
+        y     = "Used Car Price ($)"
+    ) +
+    theme_classic()
+```
+
+```{r}
+# new variable indicating conservative colors
+usedcars_conservative <- usedcars %>%
+    mutate(conservative = color %in% c("Black", "Gray", "Silver", "White"))
+```
+
+```{r}
+# checking our variable
+usedcars_conservative %>% 
+    tabyl(conservative) %>%
+    adorn_pct_formatting(digits = 0)
+```
+
+```{r}
+# crosstab of model by conservative 
+usedcars_conservative %>%
+    crosstable(
+        cols            = model,
+        by              = conservative,
+        label           = FALSE,
+        total           = "both",
+        percent_pattern = "{n} ({p_row}/{p_col}/{p_tot})",
+        percent_digits  = 1
+    ) %>%
+    as_flextable(compact = TRUE)
+```
+
+```{r}
+# compute the chi-square test
+usedcars_conservative %>%
+    tabyl(model, conservative) %>%
+    chisq.test()
+```

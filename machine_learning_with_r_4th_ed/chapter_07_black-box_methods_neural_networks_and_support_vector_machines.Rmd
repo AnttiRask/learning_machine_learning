@@ -1,0 +1,577 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 7: Black-Box Methods - Neural Networks and Support Vector Machines"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading Packages
+
+```{r}
+library(conflicted) # An Alternative Conflict Resolution Strategy
+library(corrr)      # Correlations in R
+library(janitor)    # Simple Tools for Examining and Cleaning Dirty Data
+library(tidymodels) # Easily Install and Load the 'Tidymodels' Packages
+library(tidyverse)  # Easily Install and Load the 'Tidyverse'
+```
+
+## Part 1: Neural Networks
+
+### Exploring and preparing the data
+
+#### Read in data and examine structure
+
+```{r}
+concrete_tbl <- read_csv("data/concrete.csv")
+```
+
+```{r}
+concrete_tbl %>%
+    glimpse()
+```
+
+#### Check the minimum and maximum strength
+
+```{r}
+concrete_tbl %>%
+    pull(strength) %>%
+    summary()
+```
+
+### Creating the recipe
+
+#### Apply normalization to the numeric predictors
+
+```{r}
+recipe_obj <- recipe(
+    strength ~ .,
+    data = concrete_tbl
+) %>%
+    step_range(
+        all_numeric_predictors(),
+        min = 0,
+        max = 1
+    )
+
+recipe_obj
+```
+
+```{r}
+concrete_normalized_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+concrete_normalized_tbl
+```
+
+#### Create training and test data
+
+```{r}
+concrete_split <- initial_time_split(
+    concrete_normalized_tbl,
+    prop = 773 / 1030
+)
+
+concrete_train <- training(concrete_split)
+concrete_test  <- testing(concrete_split)
+```
+
+### Training a model on the data
+
+nnet is the engine (needs to be installed if not already):
+install.packages("nnet")
+
+It is used as the engine for {parsnip}'s mlp() function. And since we are predicting strength, we choose regression as the mode.
+
+#### Create model specification
+
+```{r}
+set.seed(12345)
+
+model_spec_nnet <- mlp(
+    engine       = "nnet",
+    mode         = "regression",
+    hidden_units = 1,
+    penalty      = 0,
+    dropout      = 0,
+    epochs       = 100,
+    activation   = NULL,
+    learn_rate   = NULL
+) %>%
+    translate()
+
+model_spec_nnet
+```
+
+#### Fit the model
+
+```{r}
+model_fit_nnet <- model_spec_nnet %>% 
+    fit(
+        strength ~ .,
+        concrete_train
+    )
+
+model_fit_nnet
+```
+
+#### Take a closer look at the model
+
+```{r}
+model_fit_nnet$fit %>%
+    summary()
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+concrete_test_pred <- model_fit_nnet %>% 
+    predict(
+        new_data = concrete_test,
+        type = "numeric"
+    )
+
+concrete_test_pred
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+concrete_test_with_pred <- augment(model_fit_nnet, concrete_test)
+concrete_test_with_pred
+```
+
+#### Metrics
+
+```{r}
+concrete_test_with_pred %>%
+    metrics(strength, .pred)
+```
+
+#### Visualize the network topology
+
+Currently looking for a method to do that with tidymodels.
+
+### Evaluating model performance
+
+#### Examine the correlation between predicted and actual values
+
+```{r}
+concrete_test_with_pred %>%
+    select(.pred, strength) %>%
+    correlate()
+```
+
+A simpler alternative:
+
+```{r}
+cor(
+    concrete_test_with_pred$.pred,
+    concrete_test_with_pred$strength
+)
+```
+
+### Improving model performance with two hidden layers and custom activation function
+
+#### Create model specification
+
+```{r}
+set.seed(12345)
+model_spec_nnet_2 <- mlp(
+    engine       = "nnet",
+    mode         = "regression",
+    hidden_units = 5,
+    penalty      = 0.1,
+    epochs       = 100,
+) %>%
+    translate()
+
+model_spec_nnet_2
+```
+
+### Fit the model ----
+
+```{r}
+model_fit_nnet_2 <- model_spec_nnet_2 %>% 
+    fit(
+        strength ~ .,
+        concrete_train
+    )
+
+model_fit_nnet_2
+```
+
+#### Take a closer look at the model
+
+```{r}
+model_fit_nnet_2$fit %>%
+    summary()
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+concrete_test_pred_2 <- model_fit_nnet_2 %>% 
+    predict(
+        new_data = concrete_test,
+        type = "numeric"
+    )
+
+concrete_test_pred_2
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+concrete_test_with_pred_2 <- augment(model_fit_nnet_2, concrete_test)
+concrete_test_with_pred_2
+```
+
+#### Metrics
+
+```{r}
+concrete_test_with_pred_2 %>%
+    metrics(strength, .pred)
+```
+
+#### Examine the correlation between predicted and actual values
+
+```{r}
+concrete_test_with_pred_2 %>%
+    select(.pred, strength) %>%
+    correlate()
+```
+
+A simpler alternative:
+
+```{r}
+cor(
+    concrete_test_with_pred_2$.pred,
+    concrete_test_with_pred_2$strength
+)
+```
+
+## Part 2: Support Vector Machines
+
+### Exploring and preparing the data
+
+#### Read in data and examine structure
+
+```{r}
+letters_tbl <- read_csv("data/letterdata.csv") %>%
+    mutate(across(where(is.character), as.factor))
+```
+
+```{r}
+letters_tbl %>% 
+    glimpse()
+```
+
+### Creating the recipe
+
+#### Apply normalization to entire data frame
+
+```{r}
+recipe_obj <- recipe(
+    letter ~ .,
+    data = letters_tbl
+)
+
+recipe_obj
+```
+
+```{r}
+letters_baked_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+letters_baked_tbl
+```
+
+#### Create training and test data
+
+```{r}
+letters_split <- initial_time_split(
+    letters_baked_tbl,
+    prop = 16000 / 20000
+)
+letters_train <- training(letters_split)
+letters_test  <- testing(letters_split)
+```
+
+### Training a model on the data
+
+#### Create model specification
+
+```{r}
+model_spec_kernlab <- svm_linear(
+    engine       = "kernlab",
+    mode         = "classification",
+    cost         = NULL,
+    margin       = NULL
+) %>%
+    translate()
+
+model_spec_kernlab
+```
+
+#### Fit the model
+
+```{r}
+model_fit_kernlab <- model_spec_kernlab %>%
+    fit(
+        letter ~ .,
+        letters_train
+    )
+
+model_fit_kernlab
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+letters_test_pred <- model_fit_kernlab %>% 
+    predict(new_data = letters_test)
+
+letters_test_pred
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+letters_test_with_pred <- augment(model_fit_kernlab, letters_test)
+letters_test_with_pred
+```
+
+### Evaluating model performance
+
+#### Predictions on testing dataset
+
+```{r}
+letters_test_with_pred %>%
+    tabyl(letter, .pred_class)
+```
+
+#### Look only at agreement vs. non-agreement
+
+Construct a vector of TRUE/FALSE indicating correct/incorrect predictions
+
+```{r}
+letters_test_with_pred %>%
+    mutate(
+        agreement = case_when(
+            letter == .pred_class ~ TRUE,
+            .default              = FALSE
+        )
+    ) %>%
+    tabyl(agreement) %>% 
+    adorn_pct_formatting(digits = 1)
+```
+
+### Improving model performance
+
+#### Change to a RBF kernel
+
+```{r}
+model_spec_rbf <- svm_rbf(
+    engine       = "kernlab",
+    mode         = "classification",
+    cost         = NULL,
+    margin       = NULL,
+    rbf_sigma    = NULL
+) %>%
+    translate()
+
+model_spec_rbf
+```
+
+#### Fit the model
+
+```{r}
+model_fit_rbf <- fit(
+    model_spec_rbf,
+    letter ~ .,
+    letters_train
+)
+
+model_fit_rbf
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+letters_test_pred_rbf <- model_fit_rbf %>% 
+    predict(new_data = letters_test)
+
+letters_test_pred_rbf
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+letters_test_with_pred_rbf <- augment(model_fit_rbf, letters_test)
+letters_test_with_pred_rbf
+```
+
+#### Predictions on testing dataset
+
+```{r}
+letters_test_with_pred_rbf %>%
+    tabyl(letter, .pred_class)
+```
+
+#### Look only at agreement vs. non-agreement
+
+Construct a vector of TRUE/FALSE indicating correct/incorrect predictions
+
+```{r}
+letters_test_with_pred_rbf %>%
+    mutate(
+        agreement = case_when(
+            letter == .pred_class ~ TRUE,
+            .default              = FALSE
+        )
+    ) %>%
+    tabyl(agreement) %>% 
+    adorn_pct_formatting(digits = 1)
+```
+
+#### Test various values of the cost parameter
+
+```{r}
+cost_values <- c(1, seq(from = 5, to = 40, by = 5))
+```
+
+```{r}
+accuracy_values <- map_dbl(cost_values, function(x) {
+    
+    model_spec_rbf <- svm_rbf(
+        engine       = "kernlab",
+        mode         = "classification",
+        cost         = {{ x }},
+        margin       = NULL,
+        rbf_sigma    = NULL
+    ) %>%
+        translate()
+    
+    model_fit_rbf <- fit(
+        model_spec_rbf,
+        letter ~ .,
+        letters_train
+    )
+    
+    letters_test_pred_rbf <- model_fit_rbf %>% 
+        predict(new_data = letters_test) %>%
+        as_vector()
+    
+    agree <- if_else(letters_test_pred_rbf == letters_test %>% pull(letter), 1, 0)
+    
+    accuracy <- sum(agree) / nrow(letters_test)
+    
+    return(accuracy)
+    
+})
+```
+
+#### Bind together the cost parameter and accuracy values
+
+```{r}
+cost_vs_accuracy_tbl <- bind_cols(
+    cost_values,
+    accuracy_values,
+) %>%
+    rename(
+        cost_values     = ...1,
+        accuracy_values = ...2
+    )
+
+cost_vs_accuracy_tbl
+```
+
+#### Visualize to find the optimal cost parameter value
+
+```{r}
+cost_vs_accuracy_tbl %>%
+    ggplot(aes(cost_values, accuracy_values)) +
+    geom_line() +
+    geom_point() +
+    labs(
+        x = "Cost Parameter Value",
+        y = "Accuracy"
+    ) +
+    theme_classic()
+```
+
+#### Make sure you have the right optimal cost value for the best accuracy
+
+```{r}
+cost_vs_accuracy_tbl %>%
+    slice_max(accuracy_values)
+```
+
+#### Pull the first cost_value that has the max accuracy_value
+
+```{r}
+.max_accuracy <- cost_vs_accuracy_tbl %>%
+    slice_max(accuracy_values) %>%
+    slice(1) %>%
+    pull(cost_values)
+```
+
+### Fitting the model with the optimal cost value (that was just pulled)
+
+#### Give model specification
+
+```{r}
+model_spec_best <- svm_rbf(
+    engine       = "kernlab",
+    mode         = "classification",
+    cost         = {{ .max_accuracy }},
+    margin       = NULL,
+    rbf_sigma    = NULL
+) %>%
+    translate()
+```
+
+#### Fit the model
+
+```{r}
+model_fit_best <- fit(
+    model_spec_best,
+    letter ~ .,
+    letters_train
+)
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+letters_test_with_pred_best <- augment(model_fit_best, letters_test)
+```
+
+#### Predictions on testing dataset
+
+```{r}
+letters_test_with_pred_best %>%
+    tabyl(letter, .pred_class)
+```
+
+#### Look only at agreement vs. non-agreement
+
+Construct a vector of TRUE/FALSE indicating correct/incorrect predictions
+
+```{r}
+letters_test_with_pred_best %>%
+    mutate(
+        agreement = case_when(
+            letter == .pred_class ~ TRUE,
+            .default              = FALSE
+        )
+    ) %>%
+    tabyl(agreement) %>% 
+    adorn_pct_formatting(digits = 1)
+```

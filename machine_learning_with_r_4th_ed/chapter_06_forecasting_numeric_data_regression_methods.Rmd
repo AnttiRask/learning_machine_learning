@@ -1,0 +1,942 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 6: Forecasting Numeric Data - Regression Methods"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading Packages
+
+```{r}
+library(conflicted)           # An Alternative Conflict Resolution Strategy
+conflict_prefer("filter", "dplyr", "stats")
+library(corrr)                # Correlations in R
+library(GGally)               # Extension to 'ggplot2'
+library(janitor)              # Simple Tools for Examining and Cleaning Dirty Data
+library(PerformanceAnalytics) # Econometric Tools for Performance and Risk Analysis 
+library(rattle)               # Graphical User Interface for Data Science in R
+library(rules)                # Model Wrappers for Rule-Based Models
+library(tidymodels)           # Easily Install and Load the 'Tidymodels' Packages
+library(tidyverse)            # Easily Install and Load the 'Tidyverse'
+```
+
+## Part 1: Linear Regression
+
+### Exploring and preparing the data
+
+```{r}
+insurance_tbl <- read_csv("data/autoinsurance.csv") %>%
+    mutate(across(where(is.character), as_factor))
+```
+
+```{r}
+glimpse(insurance_tbl)
+```
+
+#### Summarize the data
+
+```{r}
+insurance_tbl %>%
+    summary()
+```
+
+#### Histogram of insurance charges
+
+```{r}
+insurance_tbl %>%
+    ggplot(aes(expenses)) +
+    geom_histogram(binwidth = 5000) +
+    theme_classic()
+```
+
+#### Distribution between categorical features
+
+```{r}
+insurance_tbl %>%
+    tabyl(geo_area) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+```{r}
+insurance_tbl %>%
+    tabyl(vehicle_type) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+#### Exploring relationships among features: correlation matrix
+
+```{r}
+insurance_tbl %>%
+    select(c("age", "est_value", "miles_driven", "expenses")) %>%
+    correlate()
+```
+
+#### Visualing relationships among features: scatterplot matrix
+
+```{r}
+insurance_tbl %>%
+    select(c("age", "est_value", "miles_driven", "expenses")) %>%
+    ggpairs()
+```
+
+An alternative from the Performance Analytics package:
+
+```{r}
+insurance_tbl %>%
+    select(c("age", "est_value", "miles_driven", "expenses")) %>%
+    chart.Correlation()
+```
+
+### Training a model on the data
+
+#### Create a recipe
+
+```{r}
+recipe_obj <- recipe(
+    expenses ~ .,
+    data = insurance_tbl
+)
+
+recipe_obj
+```
+
+```{r}
+insurance_baked_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+insurance_baked_tbl
+```
+
+#### Model specification
+
+```{r}
+model_spec_lm <- linear_reg(
+    mode            = "regression",
+    engine          = "lm"
+) %>%
+    translate()
+
+model_spec_lm
+```
+
+#### Fit the model
+
+```{r}
+model_fit_lm <- model_spec_lm %>% 
+    fit(
+        expenses ~ .,
+        insurance_baked_tbl
+    )
+```
+
+#### See the estimated beta coefficients
+
+```{r}
+options(scipen = 999)
+model_fit_lm
+```
+
+### Evaluating model performance
+
+```{r}
+model_fit_lm$fit %>%
+    summary()
+```
+
+### Improving model performance
+
+#### Add a higher-order "age" term
+
+```{r}
+insurance_augmented_tbl <- insurance_baked_tbl %>%
+    mutate(age2 = age ^ 2)
+```
+
+#### Create the final model
+
+```{r}
+recipe_augmented_obj <- recipe(
+    expenses ~ .,
+    data = insurance_augmented_tbl
+) %>%
+    step_interact(terms = ~ hard_braking_ind:late_driving_ind)
+
+recipe_augmented_obj
+```
+
+```{r}
+insurance_baked_augmented_tbl <- recipe_augmented_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+insurance_baked_augmented_tbl
+```
+
+#### Model specification
+
+```{r}
+model_spec_augmented <- linear_reg(
+    mode            = "regression",
+    engine          = "lm"
+) %>%
+    translate()
+
+model_spec_augmented
+```
+
+#### Fit the model
+
+```{r}
+model_fit_augmented <- model_spec_augmented %>% 
+    fit(
+        expenses ~ .,
+        insurance_baked_augmented_tbl
+    )
+```
+
+#### See the estimated beta coefficients
+
+```{r}
+model_fit_augmented
+```
+
+#### Evaluate model performance
+
+```{r}
+model_fit_augmented$fit %>%
+    summary()
+```
+
+#### Make predictions with the regression model (you could skip this step)
+
+```{r}
+insurance_pred_tbl <- model_fit_augmented %>% 
+    predict(
+        new_data = insurance_baked_augmented_tbl,
+        type     = "numeric"
+    )
+
+insurance_pred_tbl
+```
+
+#### Add the predictions to the tibble
+
+```{r}
+insurance_pred_tbl <- augment(model_fit_augmented, insurance_baked_augmented_tbl)
+insurance_pred_tbl
+```
+
+#### See the correlation between the actual and predicted expenses
+
+```{r}
+insurance_pred_tbl %>%
+    select(.pred, expenses) %>%
+    correlate()
+```
+
+Alternatively the simpler vectorized version
+
+```{r}
+cor(
+    insurance_pred_tbl %>% pull(.pred),
+    insurance_pred_tbl %>% pull(expenses)
+)
+```
+
+#### Visualize the correlation
+
+```{r}
+insurance_pred_tbl %>%
+    ggplot(aes(.pred, expenses)) +
+    geom_point() +
+    geom_abline(
+        intercept = 0,
+        slope     = 1,
+        color     = "red",
+        linewidth = 0.5,
+        linetype  = "dashed"
+    ) +
+    labs(
+        x = "Predicted Expenses",
+        y = "Actual Expenses"
+    ) +
+    theme_classic()
+```
+
+#### See the model metrics
+
+```{r}
+insurance_model_metrics <- insurance_pred_tbl %>%
+    metrics(
+        truth    = expenses,
+        estimate = .pred
+    )
+
+insurance_model_metrics
+```
+
+#### Make predictions with new data
+
+```{r}
+model_fit_augmented %>%
+    predict(
+        tibble(
+            age                                 = 30,
+            age2                                = 30^2,
+            geo_area                            = "rural",
+            vehicle_type                        = "truck",
+            est_value                           = 25000,
+            miles_driven                        = 14000,
+            college_grad_ind                    = 0,
+            speeding_ticket_ind                 = 0,
+            hard_braking_ind                    = 0,
+            late_driving_ind                    = 0,
+            clean_driving_ind                   = 1,
+            hard_braking_ind_x_late_driving_ind = 0
+        )
+    )
+```
+
+```{r}
+model_fit_augmented %>% 
+    predict(
+        tibble(
+            age                                 = 30,
+            age2                                = 30^2,
+            geo_area                            = "rural",
+            vehicle_type                        = "truck",
+            est_value                           = 25000,
+            miles_driven                        = 14000,
+            college_grad_ind                    = 0,
+            speeding_ticket_ind                 = 0,
+            hard_braking_ind                    = 0,
+            late_driving_ind                    = 0,
+            clean_driving_ind                   = 0,
+            hard_braking_ind_x_late_driving_ind = 0
+        )
+    )
+```
+
+```{r}
+model_fit_augmented %>% 
+    predict(
+        tibble(
+            age                                 = 30,
+            age2                                = 30^2,
+            geo_area                            = "rural",
+            vehicle_type                        = "truck",
+            est_value                           = 25000,
+            miles_driven                        = 24000,
+            college_grad_ind                    = 0,
+            speeding_ticket_ind                 = 0,
+            hard_braking_ind                    = 0,
+            late_driving_ind                    = 0,
+            clean_driving_ind                   = 0,
+            hard_braking_ind_x_late_driving_ind = 0
+        )
+    )
+```
+
+### Creating a function to help evaluate the model further
+
+The assumption here is that you have already gone through steps 1. to 5. You will see the predicted insurance expenses, if you enter the following parameters: age, geographical area type, vehicle type, estimated value, miles driven, and whether you are a college graduate, have gotten a speeding ticket, take part in hard braking, late driving, clean driving or not.
+
+```{r}
+predict_insurance_expenses <- function(
+        .age,
+        .geo_area     = c("urban", "suburban", "rural"),
+        .vehicle_type = c("suv", "car", "truck", "minivan"),
+        .est_value,
+        .miles_driven,
+        .college_grad_ind    = c("no", "yes"),
+        .speeding_ticket_ind = c("no", "yes"),
+        .hard_braking_ind    = c("no", "yes"),
+        .late_driving_ind    = c("no", "yes"),
+        .clean_driving_ind   = c("no", "yes")
+) {
+    
+    .college_grad_ind <- if_else(
+        condition = .college_grad_ind == "yes",
+        true      = 1,
+        false     = 0,
+        missing   = NULL
+    )
+    
+    .speeding_ticket_ind <- if_else(
+        condition = .speeding_ticket_ind == "yes",
+        true      = 1,
+        false     = 0,
+        missing   = NULL
+    )
+    
+    .hard_braking_ind <- if_else(
+        condition = .hard_braking_ind == "yes",
+        true      = 1,
+        false     = 0,
+        missing   = NULL
+    )
+    
+    .late_driving_ind <- if_else(
+        condition = .late_driving_ind == "yes",
+        true      = 1,
+        false     = 0,
+        missing   = NULL
+    )
+    
+    .clean_driving_ind <- if_else(
+        condition = .clean_driving_ind == "yes",
+        true      = 1,
+        false     = 0,
+        missing   = NULL
+    )
+    
+    .hard_braking_ind_x_late_driving_ind <- if_else(
+        condition = .hard_braking_ind == TRUE && .late_driving_ind == TRUE,
+        true      = 1,
+        false     = 0,
+        missing   = NULL
+    )
+    
+    .prediction <- predict(
+        model_fit_augmented,
+        tibble(
+            age                                 = .age,
+            age2                                = .age ^ 2,
+            geo_area                            = .geo_area,
+            vehicle_type                        = .vehicle_type,
+            est_value                           = .est_value,
+            miles_driven                        = .miles_driven,
+            college_grad_ind                    = .college_grad_ind,
+            speeding_ticket_ind                 = .speeding_ticket_ind,
+            hard_braking_ind                    = .hard_braking_ind,
+            late_driving_ind                    = .late_driving_ind,
+            clean_driving_ind                   = .clean_driving_ind,
+            hard_braking_ind_x_late_driving_ind = .hard_braking_ind_x_late_driving_ind
+        )
+    )
+    
+    str_glue("The predicted expenses according to the given parameters are: ${.prediction %>% round(0)}")
+    
+}
+```
+
+#### Test the function
+
+```{r}
+predict_insurance_expenses(
+    .age                 = 30,
+    .geo_area            = "rural",
+    .vehicle_type        = "truck",
+    .est_value           = 25000,
+    .miles_driven        = 14000,
+    .college_grad_ind    = "no",
+    .speeding_ticket_ind = "no",
+    .hard_braking_ind    = "no",
+    .late_driving_ind    = "no",
+    .clean_driving_ind   = "yes"
+)
+```
+
+### Predicting Insurance Policyholder Churn with Logistic Regression
+
+```{r}
+churn_tbl <- read_csv("data/insurance_churn.csv")
+```
+
+#### See the % of churn
+
+```{r}
+churn_tbl %>%
+    tabyl(churn) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+#### Training a model on the data
+
+##### Create a recipe
+
+```{r}
+recipe_obj <- recipe(
+    churn ~ .,
+    data = churn_tbl
+) %>%
+    step_rm(member_id) %>% 
+    step_mutate(churn = as.factor(churn))
+
+recipe_obj
+```
+
+```{r}
+churn_baked_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+churn_baked_tbl
+```
+
+##### Model specification
+
+```{r}
+model_spec_logistic <- logistic_reg(
+    mode = "classification"
+) %>%
+    set_engine("glm", family = binomial(link = "logit")) %>% 
+    translate()
+
+model_spec_logistic
+```
+
+##### Fit the model
+
+```{r}
+model_fit_logistic <- model_spec_logistic %>% 
+    fit(
+        churn ~ .,
+        churn_baked_tbl
+    )
+```
+
+##### See the estimated beta coefficients
+
+```{r}
+options(scipen = 999)
+model_fit_logistic
+```
+
+#### Evaluating model performance
+
+```{r}
+model_fit_logistic$fit %>%
+    summary()
+```
+
+##### Read the test set
+
+```{r}
+churn_test <- read_csv("data/insurance_churn_test.csv")
+```
+
+##### Make predictions with the regression model
+
+```{r}
+churn_pred_tbl <- model_fit_logistic %>% 
+    predict(
+        new_data = churn_test,
+        type     = "prob"
+    )
+
+churn_pred_tbl
+```
+
+##### Examine the predicted values
+
+```{r}
+churn_prob <- churn_pred_tbl %>%
+    pull(.pred_1)
+
+churn_prob %>%
+    summary()
+```
+
+##### Add the churn probability to the churn_test data
+
+```{r}
+churn_test_tbl <- churn_test %>%
+    mutate(churn_prob = churn_prob)
+
+churn_test_tbl
+```
+
+##### Provide the members most likely to churn
+
+```{r}
+churn_test_tbl %>%
+    arrange(desc(churn_prob)) %>%
+    select(member_id, churn_prob) %>%
+    slice_head(n = 5)
+```
+
+## Part 2: Regression Trees and Model Trees
+
+### Preparing and exploring the data
+
+```{r}
+wine_tbl <- read_csv("data/whitewines.csv") %>%
+    rename_with(
+        ~str_replace_all(., "\\s+", "_") %>%
+            tolower()
+    )
+```
+
+```{r}
+glimpse(wine_tbl)
+```
+
+#### The distribution of quality ratings
+
+```{r}
+wine_tbl %>%
+    ggplot(aes(quality)) +
+    geom_histogram() +
+    theme_classic()
+```
+
+#### Summary statistics of the wine data
+
+```{r}
+summary(wine_tbl)
+```
+
+```{r}
+wine_split <- initial_time_split(
+    wine_tbl,
+    prop = 3750 / 4898
+)
+wine_train <- training(wine_split)
+wine_test  <- testing(wine_split)
+```
+
+### Training a model on the data
+
+```{r}
+# regression tree using rpart
+model_spec_rpart <- decision_tree(
+    mode            = "regression",
+    engine          = "rpart",
+    cost_complexity = NULL,
+    tree_depth      = NULL,
+    min_n           = NULL
+) %>%
+    translate()
+
+model_spec_rpart
+```
+
+#### Fit the model
+
+```{r}
+model_fit_rpart <- fit(
+    model_spec_rpart,
+    quality ~ .,
+    wine_train
+)
+```
+
+#### Get basic information about the tree
+
+```{r}
+model_fit_rpart
+```
+
+#### Get more detailed information about the tree
+
+```{r}
+model_fit_rpart$fit %>%
+    summary()
+```
+
+#### Adjust plot margins to make the visualization work better
+
+```{r}
+par(mar = c(1, 1, 1, 1))
+```
+
+#### Use the rattle package to create a visualization
+
+```{r}
+model_fit_rpart$fit %>%
+    fancyRpartPlot(
+        cex      = 0.8,
+        palettes = "Blues",
+        caption  = " " 
+    )
+```
+
+### Evaluate model performance
+
+#### Generate predictions for the testing dataset (you could skip this step)
+
+```{r}
+wine_test_pred <- model_fit_rpart %>%
+    predict(
+        new_data = wine_test,
+        type     = "numeric"
+    )
+
+wine_test_pred
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+wine_test_with_pred_tbl <- augment(model_fit_rpart, wine_test)
+wine_test_with_pred_tbl
+```
+
+#### Compare the distribution of actual values vs. predicted values
+
+```{r}
+wine_test_with_pred_tbl %>%
+    select(quality, .pred) %>%
+    summary()
+```
+
+#### Compare the correlation
+
+```{r}
+wine_test_with_pred_tbl %>%
+    select(quality, .pred) %>%
+    correlate()
+```
+
+Alternatively using cor():
+
+```{r}
+cor(
+    wine_test_with_pred_tbl %>% pull(quality),
+    wine_test_with_pred_tbl %>% pull(.pred)
+)
+```
+
+#### Mean absolute error between actual and predicted values
+
+```{r}
+wine_test_with_pred_tbl %>%
+    metrics(quality, .pred) %>%
+    filter(.metric == "mae")
+```
+
+#### Mean absolute error between actual values and mean value
+
+```{r}
+mean_value <- wine_train %>%
+    pull(quality) %>%
+    mean()
+
+mean_value
+```
+
+```{r}
+mae <- function(actual, predicted) {
+    mean(abs(actual - predicted))
+}
+```
+
+```{r}
+mae(
+    wine_test %>% pull(quality),
+    mean_value
+)
+```
+
+### Improving model performance
+
+```{r}
+# train a Cubist model tree
+model_spec_cubist <- cubist_rules(
+    mode            = "regression",
+    engine          = "Cubist",
+    committees      = NULL,
+    neighbors       = NULL,
+    max_rules       = NULL
+) %>%
+    translate()
+
+model_spec_cubist
+```
+
+#### Fit the model
+
+```{r}
+model_fit_cubist <- fit(
+    model_spec_cubist,
+    quality ~ .,
+    wine_train
+)
+```
+
+#### Display basic information about the model tree
+
+```{r}
+model_fit_cubist
+```
+
+#### Display the tree itself
+
+```{r}
+summary(model_fit_cubist$fit)
+```
+
+#### Generate predictions for the model
+
+```{r}
+wine_test_pred_cubist <- model_fit_cubist %>% 
+    predict(
+        new_data = wine_test,
+        type     = "numeric"
+    )
+
+wine_test_pred_cubist
+```
+
+#### Summary statistics about the predictions
+
+```{r}
+wine_test_pred_cubist %>%
+    summary()
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+wine_test_with_pred_cubist <- augment(model_fit_cubist, wine_test)
+wine_test_with_pred_cubist
+```
+
+#### Compare the distribution of actual values vs. predicted values
+
+```{r}
+wine_test_with_pred_cubist %>%
+    select(quality, .pred) %>%
+    summary()
+```
+
+#### Correlation between the true and predicted values
+
+```{r}
+wine_test_with_pred_cubist %>%
+    select(quality, .pred) %>%
+    correlate()
+```
+
+Alternatively using cor():
+
+```{r}
+cor(
+    wine_test_with_pred_cubist %>% pull(quality),
+    wine_test_with_pred_cubist %>% pull(.pred)
+)
+```
+
+#### Mean absolute error of true and predicted values
+
+```{r}
+wine_test_with_pred_cubist %>%
+    metrics(quality, .pred) %>%
+    filter(.metric == "mae")
+```
+
+### Creating a function to test the model(s) with another dataset
+
+The assumption here is that you have already taken step 1.
+
+```{r}
+# Preparing and exploring the other wine dataset
+red_wine_tbl <- read_csv("data/redwines.csv") %>%
+    rename_with(
+        ~str_replace_all(., "\\s+", "_") %>%
+            tolower()
+    )
+```
+
+```{r}
+glimpse(red_wine_tbl)
+```
+
+#### The distribution of quality ratings
+
+```{r}
+red_wine_tbl %>%
+    ggplot(aes(quality)) +
+    geom_histogram() +
+    theme_classic()
+```
+
+#### Summary statistics of the wine data
+
+```{r}
+summary(red_wine_tbl)
+```
+
+#### Create the function
+
+```{r}
+predict_wine_quality <- function(
+        .engine    = c("rpart", "Cubist"),
+        .winecolor = c("red", "white")
+) {
+    
+    # Check that the wine color is valid
+    if (!.winecolor %in% c("red", "white")) stop("Choose a wine color: red or white")
+    
+    # Write out the path so that you can insert the wine color in there
+    path <- str_glue("data/{.winecolor}wines.csv")
+    
+    # Read in the data
+    wine_tbl <- read_csv(path) %>%
+        rename_with(
+            ~str_replace_all(., "\\s+", "_") %>%
+                tolower()
+        )
+    
+    # Make the train/test split. It's not randomizing, as the data already is
+    wine_split <- initial_time_split(
+        wine_tbl,
+        prop = 0.75
+    )
+    wine_train <- training(wine_split)
+    wine_test  <- testing(wine_split)
+    
+    # Create the model based on the engine chosen
+    if (.engine == "rpart") {
+        
+        model_spec <- decision_tree(
+            mode            = "regression",
+            engine          = "rpart"
+        ) %>%
+            translate()
+        
+    } else if (.engine == "Cubist") {
+        
+        model_spec <- cubist_rules(
+            mode            = "regression",
+            engine          = "Cubist"
+        ) %>%
+            translate()
+        
+    } else {
+        
+        stop("Choose an engine: rpart (decision tree) or Cubist (rules)")
+        
+    }
+    
+    # Fit the model
+    model_fit <- fit(
+        model_spec,
+        quality ~ .,
+        wine_train
+    )
+    
+    # Add the predictions
+    wine_test_with_pred_tbl <- augment(model_fit, wine_test)
+    
+    # Get the metrics
+    wine_test_with_pred_tbl %>%
+        metrics(quality, .pred)
+    
+}
+```
+
+#### Test the function
+
+```{r}
+predict_wine_quality(
+    .engine    = "Cubist",
+    .winecolor = "white"
+)
+```

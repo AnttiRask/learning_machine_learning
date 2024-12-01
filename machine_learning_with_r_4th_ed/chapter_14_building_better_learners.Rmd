@@ -1,0 +1,10 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 14: Building Better Learners"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```

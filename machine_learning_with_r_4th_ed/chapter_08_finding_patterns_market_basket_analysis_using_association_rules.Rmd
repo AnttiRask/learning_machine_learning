@@ -1,0 +1,164 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 8: Finding Patterns - Market Basket Analysis Using Association Rules"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading Packages
+
+```{r}
+library(arules)
+library(arulesViz)
+library(conflicted)
+library(tidyverse)
+```
+
+## Exploring and preparing the data
+
+### Load the grocery data into a sparse matrix
+
+```{r}
+groceries <- read.transactions(
+    "data/groceries.csv",
+    sep = ","
+)
+```
+
+```{r}
+groceries %>% 
+    summary()
+```
+
+### Look at the first five transactions
+
+```{r}
+groceries %>%
+    head(5) %>%
+    inspect()
+```
+
+### Examine the frequency of items
+
+```{r}
+groceries[, 1:3] %>%
+    itemFrequency()
+```
+
+### Plot the frequency of items
+
+Have to adjust the margins or there will be an error
+
+```{r}
+par(mar = c(1, 1, 1, 1))
+```
+
+```{r}
+groceries %>%
+    itemFrequencyPlot(support = 0.1)
+```
+
+```{r}
+groceries %>%
+    itemFrequencyPlot(topN = 20)
+```
+
+### A visualization of the sparse matrix for the first five transactions
+
+```{r}
+groceries[1:5] %>%
+    image()
+```
+
+### Visualization of a random sample of 100 transactions
+
+```{r}
+sample(groceries, 100) %>%
+    image()
+```
+
+## Training a model on the data
+
+### Default settings result in zero rules learned
+
+```{r}
+groceries %>%
+    apriori()
+```
+
+### Set better support and confidence levels to learn more rules
+
+```{r}
+groceryrules <- apriori(
+    groceries,
+    parameter = list(
+        support = 0.006,
+        confidence = 0.25,
+        minlen = 2
+    )
+)
+
+groceryrules
+```
+
+## Evaluating model performance
+
+### Summary of grocery association rules
+
+```{r}
+groceryrules %>% 
+    summary()
+```
+
+### Look at the first three rules
+
+```{r}
+groceryrules[1:3] %>%
+    inspect()
+```
+
+### Visualize the rules
+
+```{r}
+groceryrules %>% plot(
+    method = "graph",
+    limit  = 10
+)
+```
+
+## Improving model performance
+
+### Sorting grocery rules by lift
+
+```{r}
+sort(groceryrules, by = "lift")[1:5] %>%
+    inspect()
+```
+
+### Finding subsets of rules containing any berry items
+
+```{r}
+berryrules <- groceryrules %>%
+    subset(items %in% "berries")
+```
+
+```{r}
+berryrules %>%
+    inspect()
+```
+
+### Converting the rule set to a tibble
+
+```{r}
+groceryrules_tbl <- groceryrules %>%
+    as("data.frame") %>%
+    as_tibble()
+```
+
+```{r}
+groceryrules_tbl
+```

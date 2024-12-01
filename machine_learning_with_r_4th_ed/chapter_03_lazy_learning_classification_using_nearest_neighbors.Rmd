@@ -1,0 +1,325 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 3: Lazy Learning - Classification Using Nearest Neighbors"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 3 Lazy Learning - Classification Using Nearest Neighbors
+
+## Load Packages
+
+```{r}
+library(conflicted) # An Alternative Conflict Resolution Strategy
+library(janitor)    # Simple Tools for Examining and Cleaning Dirty Data
+library(tidymodels) # Easily Install and Load the 'Tidymodels' Packages
+library(tidyverse)  # Easily Install and Load the 'Tidyverse'
+```
+
+## Exploring and preparing the data
+
+### Import the CSV file (Breast Cancer Wisconsin (Diagnostic))
+
+```{r}
+wbcd_tbl <- read_csv(
+    "data/wisc_bc_data.csv"
+)
+```
+
+### Take a look at the tibble
+
+```{r}
+glimpse(wbcd_tbl)
+```
+
+### Drop the unnecessary id column
+
+```{r}
+wbcd_selected_tbl <- wbcd_tbl %>%
+    select(-id)
+
+wbcd_selected_tbl
+```
+
+```{r}
+# table of diagnosis
+wbcd_tbl %>%
+    tabyl(diagnosis) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+### Transform diagnosis to a factor
+
+```{r}
+wbcd_factored_tbl <- wbcd_selected_tbl %>%
+    mutate(
+        diagnosis = factor(
+            diagnosis,
+            levels = c("B", "M"),
+            labels = c("Benign", "Malignant")
+        )
+    )
+
+wbcd_factored_tbl
+```
+
+### Count the number of the two diagnosis (incl. percentage)
+
+```{r}
+wbcd_factored_tbl %>%
+    tabyl(diagnosis) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+### Summarize three numeric features
+
+```{r}
+wbcd_factored_tbl %>%
+    select(radius_mean, area_mean, smoothness_mean) %>%
+    summary()
+```
+
+## Creating the recipe and splitting the data
+
+### Normalize the wbcd data
+
+```{r}
+recipe_obj <- recipe(
+    diagnosis ~ .,
+    data = wbcd_factored_tbl
+) %>%
+    step_range(
+        all_numeric_predictors(),
+        min = 0,
+        max = 1
+    )
+
+recipe_obj
+```
+
+```{r}
+wbcd_normalized_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+```
+
+### Confirm that normalization worked
+
+```{r}
+wbcd_normalized_tbl %>%
+    select(area_mean) %>%
+    summary()
+```
+
+### Create training and test data (randomly)
+
+```{r}
+wbcd_split <- initial_split(
+    wbcd_normalized_tbl,
+    prop = 469 / 569
+)
+
+wbcd_train <- training(wbcd_split)
+wbcd_test  <- testing(wbcd_split)
+```
+
+## Training a model on the data
+
+kknn is the engine (and needs to be installed if it isn't already). It is used as the engine for {parsnip}'s nearest_neighbor() function. And since we are classifying, that is the mode we choose.
+
+### Create model specification
+
+```{r}
+model_spec <- nearest_neighbor(
+    engine      = "kknn",
+    mode        = "classification",
+    neighbors   = 21
+) %>%
+    translate()
+
+model_spec
+```
+
+### Fit the model
+
+```{r}
+model_fit <- model_spec %>% 
+    fit(
+        diagnosis ~ .,
+        wbcd_train
+    )
+
+model_fit
+```
+
+### Make the predictions (you could skip this step)
+
+```{r}
+wbcd_test_pred <- model_fit %>% 
+    predict(
+        new_data = wbcd_test,
+        type = "class"
+    )
+
+wbcd_test_pred
+```
+
+### Add the predictions to the test tibble
+
+```{r}
+wbcd_test_with_pred_tbl <- augment(model_fit, wbcd_test)
+wbcd_test_with_pred_tbl
+```
+
+## Evaluating model performance
+
+### Create a confusion matrix
+
+```{r}
+conf_mat <- conf_mat(
+    data     = wbcd_test_with_pred_tbl,
+    truth    = diagnosis,
+    estimate = .pred_class
+)
+
+conf_mat
+```
+
+### Visualize the confusion matrix
+
+```{r}
+conf_mat %>%
+    autoplot(type = "heatmap")
+
+conf_mat %>%
+    autoplot(type = "mosaic")
+```
+
+### Visualize the ROC curve
+
+```{r}
+wbcd_test_with_pred_tbl %>%
+    roc_curve(
+        truth    = diagnosis,
+        .pred_Benign
+    ) %>%
+    autoplot()
+```
+
+### Calculate the ROC AUC (area under the curve)
+
+```{r}
+wbcd_roc_auc <- wbcd_test_with_pred_tbl %>%
+    roc_auc(
+        truth    = diagnosis,
+        .pred_Benign
+    )
+
+wbcd_roc_auc
+```
+
+### Put together other model metrics
+
+```{r}
+# Such as accuracy, Matthews correlation coefficient (mcc) and others...
+classification_metrics <- conf_mat(
+    wbcd_test_with_pred_tbl,
+    truth    = diagnosis,
+    estimate = .pred_class
+) %>%
+    summary()
+
+classification_metrics
+```
+
+## Creating a function to help evaluate the model further
+
+The idea is to be able to choose different values for k and different methods for standardization (range (0 to 1) and normalization).
+
+```{r}
+classify_with_knn <- function(
+        k = 21,
+        standardization_method = c("range", "normalization")
+) {
+    
+    # Create a recipe according to the chosen standardization method
+    if (standardization_method == "range") {
+        
+        recipe_obj <- recipe(
+            formula = diagnosis ~ .,
+            data    = wbcd_factored_tbl
+        ) %>%
+            step_range(
+                all_numeric_predictors(),
+                min = 0,
+                max = 1)
+        
+    } else if (standardization_method == "normalization") {
+        
+        recipe_obj <- recipe(
+            formula = diagnosis ~ .,
+            data    = wbcd_factored_tbl
+        ) %>%
+            step_normalize(all_numeric_predictors())
+        
+    } else {
+        
+        stop('Choose a starndardization method that is either "range" or "normalization"!')
+        
+    }
+    
+    wbcd_normalized_tbl <- recipe_obj %>%
+        prep() %>%
+        bake(new_data = wbcd_factored_tbl)
+    
+    # Create training and test data
+    wbcd_split <- initial_split(
+        wbcd_normalized_tbl,
+        prop = 469 / 569
+    )
+    wbcd_train <- training(wbcd_split)
+    wbcd_test  <- testing(wbcd_split)
+    
+    # Create model specification
+    model_spec <- nearest_neighbor(
+        engine      = "kknn",
+        mode        = "classification",
+        neighbors   = k
+    ) %>%
+        translate()
+    
+    # Fit the model
+    model_fit <- model_spec %>% 
+        fit(
+            diagnosis ~ .,
+            wbcd_train
+        )
+    
+    # Add the predictions to the test tibble
+    wbcd_test_with_pred_tbl <- augment(model_fit, wbcd_test)
+    
+    # Create a confusion matrix
+    conf_mat <- conf_mat(
+        data     = wbcd_test_with_pred_tbl,
+        truth    = diagnosis,
+        estimate = .pred_class
+    )
+    
+    # Print the confusion matrix
+    conf_mat %>% autoplot(type = "heatmap")
+}
+```
+
+### Test the function
+
+```{r}
+# standardization_method is either "range" or "normalization
+classify_with_knn(
+    standardization_method = "range",
+    k = 5
+)
+```

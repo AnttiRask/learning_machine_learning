@@ -1,0 +1,670 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 4: Probabilistic Learning - Classification Using Naive Bayes"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+
+```{r}
+library(conflicted)  # An Alternative Conflict Resolution Strategy
+conflict_prefer("filter", "dplyr", "stats")
+library(crosstable)  # Crosstables for Descriptive Analyses
+library(discrim)     # Model Wrappers for Discriminant Analysis
+library(janitor)     # Simple Tools for Examining and Cleaning Dirty Data
+library(SnowballC)   # Snowball Stemmers Based on the C 'libstemmer' UTF-8 Library
+library(textrecipes) # Extra 'Recipes' for Text Processing
+library(tidymodels)  # Easily Install and Load the 'Tidymodels' Packages
+library(tidytext)    # Text Mining using 'dplyr', 'ggplot2', and Other Tidy Tools
+library(tidyverse)   # Easily Install and Load the 'Tidyverse'
+library(wordcloud2)  # Create Word Cloud by 'htmlwidget'
+```
+
+## Explore and prepare the data
+
+### Read the sms data into the sms tibble, convert spam/ham to factor
+
+```{r}
+sms_tbl <- read_csv(
+    "data/sms_spam.csv",
+    col_types = "fc"
+) %>%
+    rename(.type = type)
+
+sms_tbl
+```
+
+### Examine the structure of the sms data
+
+```{r}
+glimpse(sms_tbl)
+```
+
+### Examine the distribution of spam/ham
+
+```{r}
+sms_tbl %>%
+    tabyl(.type) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+### Build a corpus using the {tidytext} package instead of {tm}
+
+This part inspired by a blog post by Julia Silge: https://www.tidyverse.org/blog/2020/11/tidymodels-sparse-support/
+
+### Add row numbers
+
+```{r}
+sms_tbl_row_numbers <- sms_tbl %>% 
+    mutate(line = row_number()
+    )
+```
+
+
+
+### Manual preprocessing
+
+```{r}
+tidy_sms_tbl <- sms_tbl_row_numbers %>%
+    
+    mutate(
+        
+        # Make everything lowercase
+        text = str_to_lower(text),
+        
+        # Remove numbers and punctuation,
+        text = str_replace_all(text, "[[:punct:][:digit:]]+", " ")
+        
+    ) %>%
+    
+    # Unnest tokens
+    unnest_tokens(word, text) %>%
+    
+    # Remove stopwords
+    anti_join(stop_words) %>%
+    
+    # Count
+    count(line, word) %>%
+    
+    # Calculate and bind the term frequency and inverse document frequency
+    bind_tf_idf(word, line, n)
+
+tidy_sms_tbl
+```
+
+```{r}
+wide_sms_tbl <- tidy_sms_tbl %>%
+    select(line, word, tf_idf) %>%
+    pivot_wider(
+        names_from   = word,
+        names_prefix = "word_",
+        values_from  = tf_idf,
+        values_fill  = 0
+    )
+
+wide_sms_tbl
+```
+
+## Visualizing text data - word clouds
+
+This part inspired by Julia Silge & David Robinson's book Text Mining with R: A Tidy Approach: https://www.tidytextmining.com/
+
+### Count word frequencies
+
+```{r}
+frequency_tbl <- sms_tbl %>%
+    
+    mutate(
+        
+        # Make everything lowercase
+        text = str_to_lower(text),
+        
+        # Remove numbers and punctuation,
+        text = str_replace_all(text, "[[:punct:][:digit:]]+", " ")
+        
+    ) %>%
+    
+    # One word per one row
+    unnest_tokens(word, text) %>%
+    
+    # Removing stop words
+    anti_join(stop_words) %>%
+    
+    # Stemming
+    mutate(word = wordStem(word)) %>%
+    
+    # Count the words
+    count(.type, word) %>%
+    
+    # Count the proportion of words
+    mutate(
+        proportion = n / sum(n),
+        .by        = .type
+    ) %>%
+    
+    # Reorder the columns
+    select(-n) %>%
+    pivot_wider(names_from = .type, values_from = proportion) %>%
+    pivot_longer(
+        cols      = c("ham", "spam"),
+        names_to  = ".type",
+        values_to = "freq"
+    )
+
+frequency_tbl
+```
+
+### Subset the frequency data into two groups, spam and ham
+
+```{r}
+spam_tbl <- frequency_tbl %>%
+    filter(.type == "spam") %>%
+    select(-.type) %>%
+    drop_na()
+
+spam_tbl %>%
+    arrange(desc(freq))
+```
+
+```{r}
+ham_tbl <- frequency_tbl %>%
+    filter(.type == "ham") %>%
+    select(-.type) %>%
+    drop_na()
+
+ham_tbl %>%
+    arrange(desc(freq))
+```
+
+### Word cloud
+
+This part inspired by a blog post by Céline Van den Rul:
+https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
+
+```{r}
+# One for ham...
+ham_tbl %>%
+    wordcloud2(
+        size            = 2,
+        color           = "random-light",
+        backgroundColor = "black"
+    )
+```
+
+```{r}
+# ...and another for spam
+spam_tbl %>% 
+    wordcloud2(
+        size            = 2,
+        color           = "random-light",
+        backgroundColor = "black"
+    )
+```
+
+## Creating the recipe and splitting the data
+
+### Create the recipe
+
+```{r}
+text_recipe_obj <- recipe(
+    .type ~ text,
+    data = sms_tbl_row_numbers
+) %>%
+    step_tokenize(text)  %>%
+    step_stopwords(text) %>%
+    step_tokenfilter(text, max_tokens = 1e3) %>%
+    step_tfidf(text)
+
+text_recipe_obj
+```
+
+```{r}
+# Bake it
+sms_baked_tbl <- text_recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+sms_baked_tbl
+```
+
+```{r}
+# Simplify the tf-idf to yes/no
+sms_baked_longer_tbl <- sms_baked_tbl %>%
+    mutate(
+        across(
+            where(is.numeric),
+            ~ case_when(
+                . > 0 ~ "Yes",
+                .default = "No"
+            )
+        )
+    ) %>%
+    
+    # Rename the columns back to words
+    rename_with(
+        ~ tolower(str_remove(.x, "tfidf_text_")),
+        .cols = -starts_with(".type")
+    )
+
+sms_baked_longer_tbl
+```
+
+### Create training and test data
+
+Not randomly, because the messages weren't in any particular order
+
+```{r}
+sms_split <- initial_time_split(
+    sms_baked_longer_tbl,
+    prop = 0.75
+)
+
+sms_train <- training(sms_split)
+sms_test  <- testing(sms_split)
+```
+
+## Training a model on the data
+
+naivebayes is the engine (needs to be installed if not already):
+install.packages("discrim") AND
+install.packages("naivebayes")
+
+It is used as the engine for {parsnip}'s naive_Bayes() function. And since we are classifying, that is the mode we choose.
+
+The simple reason is I couldn't get klaR (the other engine) to work. If you know how, please comment on GitHub. It would be great to get to test what the difference between the two engines are.
+
+### Model specification
+
+```{r}
+model_spec <- naive_Bayes(
+    engine     = "naivebayes",
+    mode       = "classification",
+    smoothness = NULL,
+    Laplace    = NULL
+) %>%
+    translate()
+
+model_spec
+```
+
+### Fit the model
+
+```{r}
+model_fit <- model_spec %>% 
+    fit(
+        .type ~ .,
+        sms_train
+    )
+
+model_fit
+```
+
+### Make the predictions (you could skip this step)
+
+```{r}
+sms_test_pred <- model_fit %>% 
+    predict(
+        new_data = sms_test,
+        type     = "class"
+    )
+
+sms_test_pred
+```
+
+### Add the predictions to the test tibble
+
+```{r}
+sms_test_with_pred_tbl <- augment(model_fit, sms_test)
+sms_test_with_pred_tbl
+```
+
+## Evaluating model performance
+
+### Create a confusion matrix
+
+```{r}
+conf_mat <- conf_mat(
+    data     = sms_test_with_pred_tbl,
+    truth    = .type,
+    estimate = .pred_class
+)
+
+conf_mat
+```
+
+### Visualize the confusion matrix
+
+```{r}
+conf_mat %>%
+    autoplot(type = "heatmap")
+```
+
+```{r}
+conf_mat %>%
+    autoplot(type = "mosaic")
+```
+
+### Visualize the ROC curve
+
+```{r}
+sms_test_with_pred_tbl %>%
+    roc_curve(
+        truth = .type,
+        .pred_ham
+    ) %>%
+    autoplot()
+```
+
+### Calculate the ROC AUC (area under the curve)
+
+```{r}
+sms_roc_auc <- sms_test_with_pred_tbl %>%
+    roc_auc(
+        truth    = .type,
+        .pred_ham
+    )
+
+sms_roc_auc
+```
+
+## Compare to k-NN
+
+### Read the results
+
+```{r}
+sms_results_knn <- read_csv("data/sms_results_knn.csv") %>%
+    mutate(p_ham = 1 - p_spam)
+```
+
+### Naive Bayes vs k-NN - ROC curve
+
+```{r}
+# Naive Bayes
+sms_test_with_pred_tbl %>%
+    roc_curve(
+        truth = .type,
+        .pred_ham
+    ) %>%
+    autoplot()
+```
+
+```{r}
+# k-NN
+sms_test_with_pred_tbl %>%
+    mutate(.knn_p_ham = sms_results_knn$p_ham) %>%
+    roc_curve(
+        truth = .type,
+        .knn_p_ham
+    ) %>%
+    autoplot()
+```
+
+### Naive Bayes vs k-NN - AUC
+
+```{r}
+# Naive Bayes
+sms_test_with_pred_tbl %>%
+    roc_auc(
+        truth    = .type,
+        .pred_ham
+    )
+```
+
+```{r}
+# k-NN
+sms_test_with_pred_tbl %>%
+    mutate(.knn_p_ham = sms_results_knn$p_ham) %>%
+    roc_auc(
+        truth    = .type,
+        .knn_p_ham
+    )
+```
+
+### Put together other model metrics
+
+```{r}
+# Such as accuracy, Matthews correlation coefficient (mcc) and others...
+classification_metrics <- conf_mat(
+    sms_test_with_pred_tbl,
+    truth    = .type,
+    estimate = .pred_class
+) %>%
+    summary()
+
+classification_metrics
+```
+
+## Improving model performance
+
+Basically, the same as before, but with Laplace = 1
+
+### Model specification
+
+```{r}
+model_spec <- naive_Bayes(
+    engine     = "naivebayes",
+    mode       = "classification",
+    smoothness = NULL,
+    Laplace    = 1
+) %>%
+    translate()
+
+model_spec
+```
+
+### Fit the model
+
+```{r}
+model_fit <- model_spec %>%
+    fit(
+        .type ~ .,
+        sms_train
+    )
+
+model_fit
+```
+
+### Make the predictions (you could skip this step)
+
+```{r}
+sms_test_pred <- model_fit %>% 
+    predict(
+        new_data = sms_test,
+        type     = "class"
+    )
+
+sms_test_pred
+```
+
+### Add the predictions to the test tibble
+
+```{r}
+sms_test_with_pred_tbl <- augment(model_fit, sms_test)
+sms_test_with_pred_tbl
+```
+
+## Evaluating model performance
+
+### Create a confusion matrix
+
+```{r}
+conf_mat <- conf_mat(
+    data     = sms_test_with_pred_tbl,
+    truth    = .type,
+    estimate = .pred_class
+)
+
+conf_mat
+```
+
+### Visualize the confusion matrix
+
+```{r}
+conf_mat %>% autoplot(type = "heatmap")
+```
+
+```{r}
+conf_mat %>% autoplot(type = "mosaic")
+```
+
+### Visualize the ROC curve
+
+```{r}
+sms_test_with_pred_tbl %>%
+    roc_curve(
+        truth = .type,
+        .pred_ham
+    ) %>%
+    autoplot()
+```
+
+### Calculate the ROC AUC (area under the curve)
+
+```{r}
+sms_roc_auc <- sms_test_with_pred_tbl %>%
+    roc_auc(
+        truth = .type,
+        .pred_ham
+    )
+
+sms_roc_auc
+```
+
+### Put together other model metrics
+
+Such as accuracy, Matthews correlation coefficient (mcc) and others...
+
+```{r}
+classification_metrics <- conf_mat(
+    sms_test_with_pred_tbl,
+    truth    = .type,
+    estimate = .pred_class
+) %>%
+    summary()
+
+classification_metrics
+```
+
+## Creating a function to help evaluate the model further
+
+The assumption here is that you have already gone through steps 1. to 4. What we're potentially tuning here are the arguments .smoothness and .Laplace. Check out the book and/or the documentation for further info about them!
+
+```{r}
+classify_with_naive_bayes <- function(
+        .smoothness  = NULL,
+        .laplace     = NULL
+) {
+    
+    # Model specification
+    model_spec <- naive_Bayes(
+        engine     = "naivebayes",
+        mode       = "classification",
+        smoothness = .smoothness,
+        Laplace    = .laplace
+    ) %>%
+        translate()
+    
+    # Fit the model
+    model_fit <- model_spec %>% 
+        fit(
+            .type ~ .,
+            sms_train
+        )
+    
+    # Add the predictions to the test tibble
+    sms_test_with_pred_tbl <- augment(model_fit, sms_test)
+    
+    # Create a confusion matrix
+    conf_mat <- conf_mat(
+        data     = sms_test_with_pred_tbl,
+        truth    = .type,
+        estimate = .pred_class
+    )
+    
+    # Print the confusion matrix
+    conf_mat %>% autoplot(type = "heatmap")
+    
+}
+```
+
+### Test the function
+
+```{r}
+classify_with_naive_bayes(
+    .smoothness  = 1,
+    .laplace     = 1
+)
+```
+
+## Understanding the classifier's predictions
+
+### Obtain the predicted probabilities (you could skip this step)
+
+```{r}
+sms_test_prob <- model_fit %>% 
+    predict(
+        new_data = sms_test,
+        type     = "prob"
+    )
+
+sms_test_prob
+```
+
+### Look at the predicted probabilities
+
+```{r}
+sms_results <- sms_test_with_pred_tbl %>%
+    select(
+        actual_type    = .type,
+        predicted_type = .pred_class,
+        prob_spam      = .pred_spam,
+        prob_ham       = .pred_ham
+    ) %>%
+    mutate(
+        prob_spam = prob_spam %>% round(2),
+        prob_ham  = prob_ham %>% round(2)
+    )
+
+sms_results
+```
+
+### Test cases where the model is less confident
+
+```{r}
+sms_results %>%
+    filter(between(prob_spam, 0.40, 0.60))
+```
+
+### Test cases where the model was wrong
+
+```{r}
+sms_results %>%
+    filter(actual_type != predicted_type)
+```
+
+### Specifying vectors
+
+```{r}
+sms_results %>%
+    tabyl(actual_type, predicted_type)
+```
+
+### Using {crosstable}
+
+```{r}
+sms_results %>%
+    crosstable(
+        cols            = predicted_type,
+        by              = actual_type,
+        label           = FALSE,
+        total           = "both",
+        percent_pattern = "{n} ({p_row}/{p_col}/{p_tot})",
+        percent_digits  = 1
+    ) %>%
+    as_flextable(compact = TRUE)
+```

@@ -1,0 +1,778 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 5: Divide and Conquer - Classification Using Decision Trees and Rules"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading libraries
+
+```{r}
+library(conflicted) # An Alternative Conflict Resolution Strategy 
+library(janitor)    # Simple Tools for Examining and Cleaning Dirty Data
+library(tidymodels) # Easily Install and Load the 'Tidymodels' Packages
+library(tidyverse)  # Easily Install and Load the 'Tidyverse'
+```
+
+## Part 1: Decision Trees
+
+### Exploring and preparing the data
+
+```{r}
+credit_tbl <- read_csv("data/credit.csv")
+```
+
+#### Examine the structure of the credit data
+
+```{r}
+glimpse(credit_tbl)
+```
+
+#### look at two characteristics of the applicant
+
+```{r}
+credit_tbl %>%
+    tabyl(checking_balance) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+```{r}
+credit_tbl %>%
+    tabyl(savings_balance) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+#### look at two characteristics of the loan
+
+```{r}
+credit_tbl %>%
+    select(months_loan_duration, amount) %>%
+    summary()
+```
+
+#### look at the class variable
+
+```{r}
+credit_tbl %>%
+    tabyl(default) %>%
+    adorn_pct_formatting(digits = 0)
+```
+
+### Creating the recipe and splitting the data
+
+#### Convert strings to factors
+
+```{r}
+recipe_obj <- recipe(
+    default ~ .,
+    data = credit_tbl
+) %>%
+    step_string2factor(all_nominal())
+
+recipe_obj
+```
+
+```{r}
+credit_factorized_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+credit_factorized_tbl
+```
+
+#### Create training and test data (randomly)
+
+```{r}
+# Use seed to use the same random number sequence as the original
+set.seed(9829)
+```
+
+```{r}
+credit_split <- initial_split(
+    credit_factorized_tbl,
+    prop = 0.9
+)
+
+credit_train <- training(credit_split)
+credit_test  <- testing(credit_split)
+```
+
+#### Check the proportion of class variable
+
+```{r}
+credit_train %>%
+    tabyl(default) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+```{r}
+credit_test %>%
+    tabyl(default) %>%
+    adorn_pct_formatting(digits = 0)
+```
+
+### Training a model on the data
+
+#### Model specification
+
+```{r}
+model_spec <- decision_tree(
+    mode            = "classification",
+    engine          = "C5.0",
+    cost_complexity = NULL,
+    tree_depth      = NULL,
+    min_n           = NULL
+) %>%
+    translate()
+
+model_spec
+```
+
+#### Fit the model
+
+```{r}
+model_fit <- model_spec %>% 
+    fit(
+        default ~ .,
+        credit_train
+    )
+
+model_fit
+```
+
+```{r}
+model_fit %>%
+    extract_fit_engine() %>%
+    summary()
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+credit_test_pred <- model_fit %>% 
+    predict(
+        new_data = credit_test,
+        type     = "class"
+    )
+
+credit_test_pred
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+credit_test_with_pred_tbl <- augment(model_fit, credit_test)
+credit_test_with_pred_tbl
+```
+
+### Evaluating model performance
+
+#### Create a confusion matrix
+
+```{r}
+conf_mat <- conf_mat(
+    data     = credit_test_with_pred_tbl,
+    truth    = default,
+    estimate = .pred_class
+)
+conf_mat
+```
+
+#### Visualize the confusion matrix
+
+```{r}
+conf_mat %>% autoplot(type = "heatmap")
+```
+
+```{r}
+conf_mat %>% autoplot(type = "mosaic")
+```
+
+#### Visualize the ROC curve
+
+```{r}
+credit_test_with_pred_tbl %>%
+    roc_curve(
+        truth = default,
+        .pred_no
+    ) %>%
+    autoplot()
+```
+
+#### Calculate the ROC AUC (area under the curve)
+
+```{r}
+credit_roc_auc <- credit_test_with_pred_tbl %>%
+    roc_auc(
+        truth = default,
+        .pred_no
+    )
+credit_roc_auc
+```
+
+#### Put together other model metrics
+
+Such as accuracy, Matthews correlation coefficient (mcc) and others...
+
+```{r}
+classification_metrics <- conf_mat(
+    credit_test_with_pred_tbl,
+    truth    = default,
+    estimate = .pred_class
+) %>%
+    summary()
+
+classification_metrics
+```
+
+### Improving model performance
+
+#### Boost the decision tree with 10 trials
+
+```{r}
+model_spec_boost_tree <- boost_tree(
+    mode            = "classification",
+    engine          = "C5.0",
+    trees           = 10,
+    min_n           = NULL,
+    sample_size     = NULL
+) %>%
+    translate()
+
+model_spec_boost_tree
+```
+
+#### Fit the model
+
+```{r}
+model_fit_boost_tree <- model_spec_boost_tree %>% 
+    fit(
+        default ~ .,
+        credit_train
+    )
+
+model_fit_boost_tree
+```
+
+```{r}
+model_fit_boost_tree %>%
+    extract_fit_engine() %>%
+    summary()
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+credit_test_pred_boost_tree <- model_fit_boost_tree %>% 
+    predict(
+        new_data = credit_test,
+        type     = "class"
+    )
+
+credit_test_pred_boost_tree
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+credit_test_with_pred_boost_tree <- augment(model_fit_boost_tree, credit_test)
+credit_test_with_pred_boost_tree
+```
+
+### Create a confusion matrix
+
+```{r}
+conf_mat_boost_tree <- conf_mat(
+    data     = credit_test_with_pred_boost_tree,
+    truth    = default,
+    estimate = .pred_class
+)
+
+conf_mat_boost_tree
+```
+
+#### Visualize the confusion matrix
+
+```{r}
+conf_mat_boost_tree %>% autoplot(type = "heatmap")
+```
+
+```{r}
+conf_mat_boost_tree %>% autoplot(type = "mosaic")
+```
+
+#### Visualize the ROC curve
+
+```{r}
+credit_test_with_pred_boost_tree %>%
+    roc_curve(
+        truth    = default,
+        .pred_no
+    ) %>%
+    autoplot()
+```
+
+#### Calculate the ROC AUC (area under the curve)
+
+```{r}
+credit_roc_auc_boost_tree <- credit_test_with_pred_boost_tree %>%
+    roc_auc(
+        truth    = default,
+        .pred_no
+    )
+
+credit_roc_auc_boost_tree
+```
+
+#### Put together other model metrics
+
+Such as accuracy, Matthews correlation coefficient (mcc) and others...
+
+```{r}
+classification_metrics_boost_tree <- conf_mat(
+    credit_test_with_pred_boost_tree,
+    truth    = default,
+    estimate = .pred_class
+) %>%
+    summary()
+
+classification_metrics_boost_tree
+```
+
+### Creating a function to help evaluate the model further
+
+The assumption here is that you have already gone through steps 1. to 2. What we're potentially tuning here are the arguments .tree_depth and .min_n for decision_tree, and .trees and .min_n for boost_tree.
+
+```{r}
+classify_with_c5_trees <- function(
+        .model           = c("decision_tree", "boost_tree"),
+        .mode            = "classification",
+        .engine          = "C5.0",
+        .tree_depth      = NULL, # for decision_tree
+        .trees           = NULL, # for boost_tree
+        .min_n           = 1     # for both
+) {
+    
+    # Create the recipe
+    recipe_obj <- recipe(
+        default ~ .,
+        data = credit_tbl
+    ) %>%
+        step_string2factor(all_nominal())
+    
+    credit_factorized_tbl <- recipe_obj %>%
+        prep() %>%
+        bake(new_data = NULL)
+    
+    # Create training and test data (randomly)
+    RNGversion("3.5.2")
+    set.seed(123)
+    
+    credit_split <- initial_split(
+        credit_factorized_tbl,
+        prop = 0.9
+    )
+    credit_train <- training(credit_split)
+    credit_test  <- testing(credit_split)
+    
+    # Model specification
+    model <- .model
+    
+    if (model == "decision_tree") {
+        
+        model_spec <- decision_tree(
+            mode            = .mode,
+            engine          = .engine,
+            tree_depth      = .tree_depth,
+            min_n           = .min_n
+        ) %>%
+            translate()
+        
+    } else if (model == "boost_tree") {
+        
+        model_spec <- boost_tree(
+            mode            = .mode,
+            engine          = .engine,
+            trees           = .trees,
+            min_n           = .min_n
+        ) %>%
+            translate()
+        
+    } else {
+        
+        stop("The model needs to be either decision_tree or boost_tree!")
+        
+    }
+    
+    # Fit the model
+    model_fit <- model_spec %>% 
+        fit(
+            default ~ .,
+            credit_train
+        )
+    
+    # Add the predictions to the test tibble
+    credit_test_with_pred_tbl <- augment(model_fit, credit_test)
+    credit_test_with_pred_tbl
+    
+    # Create a confusion matrix
+    conf_mat <- conf_mat(
+        data     = credit_test_with_pred_tbl,
+        truth    = default,
+        estimate = .pred_class
+    )
+    
+    conf_mat %>% autoplot(type = "heatmap")
+    
+}
+```
+
+#### Test the function
+
+```{r}
+classify_with_c5_trees(
+    .model           = "decision_tree",
+    .mode            = "classification",
+    .engine          = "C5.0",
+    .tree_depth      = NULL, # for decision_tree
+    .trees           = NULL, # for boost_tree
+    .min_n           = 1     # for both, NULL produces error, so > 1 is adviced
+)
+```
+
+### Cross-validation
+
+You might want to restart R (Ctrl + Shift + F10) at this point so you have a clean slate
+
+#### Load packages
+
+```{r}
+library(conflicted) # An Alternative Conflict Resolution Strategy
+library(tidymodels) # Easily Install and Load the 'Tidymodels' Packages
+library(tidyverse) # Easily Install and Load the 'Tidyverse'
+```
+
+#### Load the data
+
+```{r}
+credit_tbl <- read_csv("data/credit.csv")
+```
+
+### Create the train-test split ----
+
+```{r}
+set.seed(9829)
+```
+
+```{r}
+credit_split <- initial_split(
+    credit_tbl,
+    prop = 0.9
+)
+credit_train <- training(credit_split)
+credit_test  <- testing(credit_split)
+```
+
+#### Create the cross-validation folds
+
+```{r}
+folds_train <- vfold_cv(credit_train, v = 10)
+folds_train
+```
+
+#### Create recipe, model specification and control
+
+```{r}
+recipe_train <- recipe(
+    default ~ .,
+    data = credit_train
+) %>%
+    step_string2factor(all_nominal())
+```
+
+```{r}
+model_spec <- decision_tree(
+    mode            = "classification",
+    engine          = "C5.0",
+    cost_complexity = NULL,
+    tree_depth      = NULL,
+    min_n           = NULL
+) %>%
+    translate()
+```
+
+```{r}
+control <- control_resamples(save_pred = TRUE)
+```
+
+#### Fit the samples
+
+```{r}
+spline_res_train <- fit_resamples(
+    object       = model_spec,
+    preprocessor = recipe_train,
+    resamples    = folds_train,
+    control      = control
+)
+```
+
+#### Look at the summarized model metrics
+
+```{r}
+spline_res_train %>%
+    collect_metrics()
+```
+
+#### Look at the individual model metrics
+
+```{r}
+spline_res_train %>%
+    collect_metrics(summarize = FALSE) %>% 
+    ggplot(aes(.estimate)) +
+    geom_histogram(bins = 10) +
+    facet_wrap(vars(.metric)) +
+    theme_classic()
+```
+
+## Part 2: Rule Learners
+
+You might want to restart R (Ctrl + Shift + F10) at this point so you have a clean slate
+
+### Loading libraries
+
+```{r}
+library(conflicted) # An Alternative Conflict Resolution Strategy
+library(janitor)    # Simple Tools for Examining and Cleaning Dirty Data
+library(rules)      # Model Wrappers for Rule-Based Models
+library(tidymodels) # Easily Install and Load the 'Tidymodels' Packages
+library(tidyverse)  # Easily Install and Load the 'Tidyverse'
+```
+
+### Exploring and preparing the data
+
+```{r}
+mushrooms_tbl <- read_csv("data/mushrooms.csv")
+```
+
+#### Examine the data
+
+```{r}
+mushrooms_tbl %>%
+    map(unique)
+```
+
+#### Drop the veil_type feature
+
+```{r}
+mushroom_selected_tbl <- mushrooms_tbl %>%
+    select(-veil_type)
+```
+
+#### Examine the class distribution
+
+```{r}
+mushroom_selected_tbl %>%
+    tabyl(type) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+### Creating the recipe
+
+```{r}
+recipe_obj <- recipe(
+    type ~ .,
+    data = mushroom_selected_tbl
+)
+
+recipe_obj
+```
+
+```{r}
+mushroom_baked_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+```
+
+### Training a model on the data
+
+#### Model specification
+
+```{r}
+model_spec <- C5_rules(
+    mode            = "classification",
+    engine          = "C5.0",
+    trees           = NULL,
+    min_n           = NULL
+) %>%
+    translate()
+
+model_spec
+```
+
+#### Fit the model
+
+```{r}
+model_fit <- fit(
+    model_spec,
+    type ~ .,
+    mushroom_baked_tbl
+)
+
+model_fit
+```
+
+```{r}
+model_fit %>%
+    extract_fit_engine() %>%
+    summary()
+```
+
+#### Make the predictions (you could skip this step)
+
+```{r}
+mushroom_pred_tbl <- model_fit %>%
+    predict(
+        new_data = mushroom_baked_tbl,
+        type     = "class"
+    )
+
+mushroom_pred_tbl
+```
+
+#### Add the predictions to the test tibble
+
+```{r}
+mushroom_pred_tbl <- augment(model_fit, mushroom_baked_tbl)
+mushroom_pred_tbl
+```
+
+### Evaluating model performance
+
+#### Create a confusion matrix
+
+```{r}
+conf_mat <- conf_mat(
+    data     = mushroom_pred_tbl,
+    truth    = type,
+    estimate = .pred_class
+)
+
+conf_mat
+```
+
+#### Visualize the confusion matrix
+
+```{r}
+conf_mat %>% autoplot(type = "heatmap")
+```
+
+```{r}
+conf_mat %>% autoplot(type = "mosaic")
+```
+
+#### Visualize the ROC curve
+
+```{r}
+mushroom_pred_tbl %>%
+    roc_curve(
+        truth    = type,
+        .pred_edible
+    ) %>%
+    autoplot()
+```
+
+#### Calculate the ROC AUC (area under the curve)
+
+```{r}
+mushroom_roc_auc <- mushroom_pred_tbl %>%
+    roc_auc(
+        truth    = type,
+        .pred_edible
+    )
+
+mushroom_roc_auc
+```
+
+#### Put together other model metrics
+
+Such as accuracy, Matthews correlation coefficient (mcc) and others...
+
+```{r}
+classification_metrics <- conf_mat(
+    mushroom_pred_tbl,
+    truth    = type,
+    estimate = .pred_class
+) %>%
+    summary()
+
+classification_metrics
+```
+
+### Creating a function to help evaluate the model further
+
+The assumption here is that you have already gone through steps 1. to 4. What we're potentially tuning here are the arguments .trees and .min_n
+
+```{r}
+classify_with_c5_rules <- function(
+        .trees           = NULL,
+        .min_n           = NULL
+) {
+    
+    # Create the recipe
+    recipe_obj <- recipe(
+        type ~ .,
+        data = mushroom_selected_tbl
+    )
+    
+    mushroom_baked_tbl <- recipe_obj %>%
+        prep() %>%
+        bake(new_data = NULL)
+    
+    # Model specification
+    model_spec <- C5_rules(
+        mode            = "classification",
+        engine          = "C5.0",
+        trees           = .trees,
+        min_n           = .min_n
+    ) %>%
+        translate()
+    
+    # Fit the model
+    model_fit <- fit(
+        model_spec,
+        type ~ .,
+        mushroom_baked_tbl
+    )
+    
+    model_fit %>%
+        extract_fit_engine() %>%
+        summary()
+    
+    # Add the predictions to the test tibble
+    mushroom_pred_tbl <- augment(model_fit, mushroom_baked_tbl)
+    
+    # Create a confusion matrix
+    conf_mat <- conf_mat(
+        data     = mushroom_pred_tbl,
+        truth    = type,
+        estimate = .pred_class
+    )
+    
+    conf_mat %>% autoplot(type = "heatmap")
+    
+}
+```
+
+#### Test the function
+
+```{r}
+classify_with_c5_rules(
+    .trees = 3,
+    .min_n = 1
+)
+```
+

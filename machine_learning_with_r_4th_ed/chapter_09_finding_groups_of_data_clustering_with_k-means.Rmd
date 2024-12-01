@@ -1,0 +1,350 @@
+---
+title: "Lantz, Brett - Machine Learning with R (4th ed.), Chapter 9: Finding Groups of Data - Clustering with k-means"
+author: 'Original Code: Brett Lantz | Modifications: Antti Rask'
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading Packages
+
+```{r}
+library(conflicted)
+library(janitor)
+library(tidyclust)
+library(tidymodels)
+library(tidyverse)
+```
+
+## Exploring and preparing the data
+
+```{r}
+teens_tbl <- read_csv("data/snsdata.csv") %>%
+    mutate(across(where(is.character), as.factor))
+```
+
+```{r}
+teens_tbl %>%
+    glimpse()
+```
+
+### Look at missing data for age variable
+
+```{r}
+teens_tbl %>%
+    pull(age) %>%
+    summary()
+```
+
+### Eliminate age outliers
+
+```{r}
+teens_only_tbl <- teens_tbl %>%
+    mutate(
+        age = case_when(
+            between(age, 13, 20) ~ age,
+            .default             = NA_real_
+        )
+    )
+```
+
+```{r}
+teens_only_tbl %>%
+    pull(age) %>%
+    summary()
+```
+
+### Look at missing data for female variable
+
+```{r}
+teens_only_tbl %>%
+    tabyl(gender) %>%
+    adorn_pct_formatting(digits = 1)
+```
+
+### Reassign missing gender values to "unknown" and change into factors
+
+```{r}
+teens_gendered_tbl <- teens_only_tbl %>%
+    mutate(
+        gender = case_when(
+            gender %in% c("F", "M") ~ gender,
+            .default                = "gender_unknown"
+        ) %>%
+            as.factor()
+    )
+```
+
+### Check our recoding work
+
+```{r}
+teens_gendered_tbl %>%
+    tabyl(gender) %>%
+    adorn_pct_formatting(digits = 1) %>%
+    arrange(desc(percent))
+```
+
+### Finding the mean age by cohort
+
+Doesn't work because of the NAs
+
+```{r}
+teens_gendered_tbl %>%
+    pull(age) %>%
+    mean()
+```
+
+Works thanks to the na.rm = TRUE
+
+```{r}
+teens_gendered_tbl %>%
+    pull(age) %>%
+    mean(na.rm = TRUE)
+```
+
+### Age by cohort
+
+```{r}
+teens_gendered_tbl %>%
+    summarize(
+        age = mean(age, na.rm = TRUE),
+        .by = gradyear
+    )
+```
+
+### Create a vector with the average age for each gradyear, repeated by person
+
+```{r}
+average_age_by_gradyear <- teens_gendered_tbl %>%
+    mutate(
+        ave_age = mean(age, na.rm = TRUE),
+        .by     = gradyear
+    ) %>%
+    pull()
+```
+
+### Impute the missing age values with the average age by gradyear
+
+```{r}
+teens_imputed_tbl <- teens_gendered_tbl %>%
+    mutate(
+        age = case_when(
+            !is.na(age) ~ age,
+            .default    = average_age_by_gradyear
+        )
+    )
+```
+
+### Check the summary results to ensure missing values are eliminated
+
+```{r}
+teens_imputed_tbl %>%
+    pull(age) %>%
+    summary()
+```
+
+## Creating the recipe
+
+### Apply normalization to entire data frame
+
+```{r}
+recipe_obj <- recipe(teens_imputed_tbl) %>%
+    step_normalize(
+        all_numeric(),
+        -c(gradyear, age, friends)
+    ) %>%
+    step_dummy(
+        gender,
+        keep_original_cols = TRUE,
+        one_hot            = TRUE
+    )
+
+recipe_obj
+```
+
+```{r}
+recipe_baked_tbl <- recipe_obj %>%
+    prep() %>%
+    bake(new_data = NULL)
+
+recipe_baked_tbl
+```
+
+## Training a model on the data
+
+### Create a z-score standardized data frame for easier interpretation
+
+```{r}
+interests_tbl <- recipe_baked_tbl %>%
+    select(5:40)
+```
+
+### Compare the data before and after the transformation
+
+Before
+
+```{r}
+teens_imputed_tbl %>%
+    pull(basketball) %>%
+    summary()
+```
+
+After
+
+```{r}
+interests_tbl %>%
+    pull(basketball) %>%
+    summary()
+```
+
+#### Create model specification
+
+```{r}
+model_spec_kmeans <- k_means(
+    engine       = "stats",
+    num_clusters = 5
+)
+
+model_spec_kmeans
+```
+
+```{r}
+set.seed(2345)
+
+model_fit_kmeans <- model_spec_kmeans %>%
+  fit(
+      ~ .,
+      interests_tbl
+  )
+
+model_fit_kmeans
+```
+
+## Evaluating model performance
+
+### Look at the single-row summary
+
+```{r}
+model_fit_kmeans %>%
+    glance()
+```
+
+### Look at the size and the centers of the clusters
+
+```{r}
+model_fit_kmeans %>%
+    tidy() %>%
+    select(cluster, size, withinss, everything())
+```
+
+## Improving model performance
+
+### Apply the cluster IDs to the original data frame
+
+```{r}
+teens_and_clusters <- augment(model_fit_kmeans, recipe_baked_tbl)
+teens_and_clusters
+```
+
+### Look at the first five records
+
+```{r}
+teens_and_clusters %>%
+    select(.pred_cluster, gender, age, friends) %>%
+    slice_head(n = 5)
+```
+
+### Mean age by cluster
+
+```{r}
+teens_and_clusters %>%
+    summarize(
+        age = mean(age),
+        .by = .pred_cluster
+    )
+```
+
+### Proportion of females by cluster
+
+```{r}
+teens_and_clusters %>%
+    summarize(
+        gender_F = mean(gender_F),
+        .by      = .pred_cluster 
+    )
+```
+
+### Mean number of friends by cluster
+
+```{r}
+teens_and_clusters %>%
+    summarize(
+        friends = mean(friends),
+        .by     = .pred_cluster
+    )
+```
+
+## K-means clustering with tidy data principles
+
+### Exploratory clustering
+
+```{r}
+kclusts <-
+    tibble(k = 1:9) %>%
+    mutate(
+        kclust    = map(k, ~kmeans(interests_tbl, .x)),
+        tidied    = map(kclust, tidy),
+        glanced   = map(kclust, glance),
+        augmented = map(kclust, augment, recipe_baked_tbl)
+    )
+```
+
+### Create three separate datasets
+
+```{r}
+clusters <- kclusts %>%
+    unnest(cols = c(tidied))
+
+assignments <- kclusts %>%
+    unnest(cols = c(augmented))
+
+clusterings <- kclusts %>%
+    unnest(cols = c(glanced))
+```
+
+### Plot the original points
+
+```{r}
+p1 <- assignments %>%
+    ggplot(aes(sports, music)) +
+    geom_point(aes(color = .cluster), alpha = 0.5) +
+    facet_wrap(vars(k)) +
+    theme_bw()
+
+p1
+```
+
+```{r}
+p2 <- p1 +
+    geom_point(data = clusters, size = 5, shape = "x")
+
+p2
+```
+
+### Plot the total within sum of squares (tot.withinss)
+
+```{r}
+clusterings %>%
+    ggplot(aes(k, tot.withinss)) +
+    geom_line() +
+    geom_point() +
+    theme_bw() +
+    scale_x_continuous(breaks = seq(1, 9, by = 1)) +
+    labs(
+        x = "k",
+        y = "Total Within Sum of Squares"
+    )
+```
